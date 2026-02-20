@@ -59,7 +59,7 @@ Each icon in the sidebar is draggable onto the canvas. Once placed:
   Send to Back
 
 ## Scenes
-- A single .Lumalayout file can contain multiple scenes
+- A single .lumalayout file can contain multiple scenes
 - Each scene has its own canvas, name, and set of elements
 - Scenes are listed in a left sidebar and can be added, renamed, reordered, 
   or deleted
@@ -67,9 +67,9 @@ Each icon in the sidebar is draggable onto the canvas. Once placed:
 
 ## Project Management
 - New Project: blank canvas, prompts for project name
-- Save: saves to .Lumalayout JSON file (all element positions, rotations, 
+- Save: saves to .lumalayout JSON file (all element positions, rotations, 
   scales, colors, labels, and SVG references)
-- Load: opens .Lumalayout file and restores full state
+- Load: opens .lumalayout file and restores full state
 - Auto-save: every 60 seconds to a temp file
 - Recent Projects: list of last 5 opened files on home screen
 
@@ -102,8 +102,8 @@ Each icon in the sidebar is draggable onto the canvas. Once placed:
   (toolbar indicator, cursor change)
 
 ## Icon Files
-All icons are individual SVG files in the /icons folder. They should be 
-named clearly by category and type, e.g.:
+All icons are individual SVG files in the /icons folder, named clearly 
+by category and type, e.g.:
 - camera-dslr.svg
 - light-fresnel.svg
 - light-softbox.svg
