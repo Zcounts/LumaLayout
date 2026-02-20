@@ -1,0 +1,45 @@
+{
+  "name": "lumalayout",
+  "version": "1.0.0",
+  "description": "Professional film and photography lighting diagram app",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "build": "vite build && electron-builder",
+    "preview": "vite preview",
+    "vite": "vite",
+    "electron": "electron ."
+  },
+  "keywords": [],
+  "author": "LumaLayout",
+  "license": "MIT",
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-konva": "^18.2.10",
+    "konva": "^9.3.6",
+    "zustand": "^4.5.2",
+    "use-image": "^1.1.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.19",
+    "concurrently": "^8.2.2",
+    "electron": "^29.1.4",
+    "electron-builder": "^24.13.3",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.3",
+    "vite": "^5.2.8",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.lumalayout.app",
+    "productName": "LumaLayout",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "win": {
+      "target": "nsis"
+    }
+  }
+}
