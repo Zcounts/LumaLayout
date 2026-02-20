@@ -36,6 +36,7 @@ function createWindow() {
           accelerator: 'CmdOrCtrl+N',
           click: () => win.webContents.send('menu-new-project'),
         },
+        { type: 'separator' },
         {
           label: 'Open...',
           accelerator: 'CmdOrCtrl+O',
@@ -45,15 +46,23 @@ function createWindow() {
               properties: ['openFile'],
             })
             if (!result.canceled && result.filePaths.length > 0) {
-              const data = fs.readFileSync(result.filePaths[0], 'utf-8')
-              win.webContents.send('menu-open-file', { path: result.filePaths[0], data })
+              const filePath = result.filePaths[0]
+              const data = fs.readFileSync(filePath, 'utf-8')
+              app.addRecentDocument(filePath)
+              win.webContents.send('menu-open-file', { path: filePath, data })
             }
           },
         },
+        { type: 'separator' },
         {
           label: 'Save',
           accelerator: 'CmdOrCtrl+S',
           click: () => win.webContents.send('menu-save'),
+        },
+        {
+          label: 'Save As...',
+          accelerator: 'CmdOrCtrl+Shift+S',
+          click: () => win.webContents.send('menu-save-as'),
         },
         { type: 'separator' },
         { role: 'quit' },
@@ -93,6 +102,7 @@ ipcMain.handle('save-file', async (event, { filePath, data }) => {
   try {
     if (filePath) {
       fs.writeFileSync(filePath, data, 'utf-8')
+      app.addRecentDocument(filePath)
       return { success: true, filePath }
     } else {
       const result = await dialog.showSaveDialog({
@@ -101,6 +111,7 @@ ipcMain.handle('save-file', async (event, { filePath, data }) => {
       })
       if (!result.canceled && result.filePath) {
         fs.writeFileSync(result.filePath, data, 'utf-8')
+        app.addRecentDocument(result.filePath)
         return { success: true, filePath: result.filePath }
       }
       return { success: false }
@@ -116,10 +127,23 @@ ipcMain.handle('open-file', async () => {
     properties: ['openFile'],
   })
   if (!result.canceled && result.filePaths.length > 0) {
-    const data = fs.readFileSync(result.filePaths[0], 'utf-8')
-    return { success: true, filePath: result.filePaths[0], data }
+    const filePath = result.filePaths[0]
+    const data = fs.readFileSync(filePath, 'utf-8')
+    app.addRecentDocument(filePath)
+    return { success: true, filePath, data }
   }
   return { success: false }
+})
+
+// Auto-save to userData temp file
+ipcMain.handle('auto-save', async (event, { data }) => {
+  try {
+    const autoSavePath = path.join(app.getPath('userData'), 'autosave.lumalayout')
+    fs.writeFileSync(autoSavePath, data, 'utf-8')
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: err.message }
+  }
 })
 
 app.whenReady().then(createWindow)

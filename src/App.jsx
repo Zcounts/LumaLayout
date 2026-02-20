@@ -1,10 +1,11 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useStore } from './store/useStore'
 import Toolbar from './components/Toolbar'
 import Sidebar from './components/Sidebar'
 import Canvas from './components/Canvas'
 import ContextMenu from './components/ContextMenu'
 import LabelEditor from './components/LabelEditor'
+import NewProjectDialog from './components/NewProjectDialog'
 
 export default function App() {
   const darkMode = useStore(s => s.darkMode)
@@ -13,27 +14,99 @@ export default function App() {
   const importData = useStore(s => s.importData)
   const exportData = useStore(s => s.exportData)
   const mode = useStore(s => s.mode)
+  const projectName = useStore(s => s.projectName)
+  const currentFilePath = useStore(s => s.currentFilePath)
+  const setCurrentFilePath = useStore(s => s.setCurrentFilePath)
+  const addRecentProject = useStore(s => s.addRecentProject)
+  const newProject = useStore(s => s.newProject)
 
-  // Wire up Electron menu events
+  const [showNewProjectDialog, setShowNewProjectDialog] = useState(false)
+
+  // Stable refs so IPC callbacks always use latest values
+  const exportDataRef = useRef(exportData)
+  const importDataRef = useRef(importData)
+  const currentFilePathRef = useRef(currentFilePath)
+  const projectNameRef = useRef(projectName)
+  const setCurrentFilePathRef = useRef(setCurrentFilePath)
+  const addRecentProjectRef = useRef(addRecentProject)
+
+  useEffect(() => { exportDataRef.current = exportData }, [exportData])
+  useEffect(() => { importDataRef.current = importData }, [importData])
+  useEffect(() => { currentFilePathRef.current = currentFilePath }, [currentFilePath])
+  useEffect(() => { projectNameRef.current = projectName }, [projectName])
+  useEffect(() => { setCurrentFilePathRef.current = setCurrentFilePath }, [setCurrentFilePath])
+  useEffect(() => { addRecentProjectRef.current = addRecentProject }, [addRecentProject])
+
+  // Update window title
+  useEffect(() => {
+    const unsaved = currentFilePath ? '' : ' \u2022'
+    document.title = `${projectName}${unsaved} \u2014 LumaLayout`
+  }, [projectName, currentFilePath])
+
+  // Auto-save every 60 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!window.electronAPI) return
+      const data = exportDataRef.current()
+      window.electronAPI.autoSave({ data })
+    }, 60000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Wire up Electron menu events (once on mount)
   useEffect(() => {
     if (!window.electronAPI) return
 
-    const handlers = [
-      window.electronAPI.onMenuUndo(() => undo()),
-      window.electronAPI.onMenuRedo(() => redo()),
-      window.electronAPI.onMenuSave(async () => {
-        const data = exportData()
-        await window.electronAPI?.saveFile({ data })
-      }),
-      window.electronAPI.onMenuOpenFile(async ({ data }) => {
-        importData(data)
-      }),
-    ]
+    const removeUndo = window.electronAPI.onMenuUndo(() => undo())
+    const removeRedo = window.electronAPI.onMenuRedo(() => redo())
+
+    const removeNewProject = window.electronAPI.onMenuNewProject(() => {
+      setShowNewProjectDialog(true)
+    })
+
+    const removeSave = window.electronAPI.onMenuSave(async () => {
+      const data = exportDataRef.current()
+      const filePath = currentFilePathRef.current
+      const result = await window.electronAPI.saveFile({ filePath, data })
+      if (result?.success && result.filePath) {
+        setCurrentFilePathRef.current(result.filePath)
+        const name = result.filePath.split(/[\\/]/).pop().replace(/\.lumalayout$/i, '')
+        addRecentProjectRef.current(result.filePath, name)
+      }
+    })
+
+    const removeSaveAs = window.electronAPI.onMenuSaveAs(async () => {
+      const data = exportDataRef.current()
+      const result = await window.electronAPI.saveFile({ data })
+      if (result?.success && result.filePath) {
+        setCurrentFilePathRef.current(result.filePath)
+        const name = result.filePath.split(/[\\/]/).pop().replace(/\.lumalayout$/i, '')
+        addRecentProjectRef.current(result.filePath, name)
+      }
+    })
+
+    const removeOpenFile = window.electronAPI.onMenuOpenFile(({ data, path }) => {
+      importDataRef.current(data, path || null)
+      if (path) {
+        const name = path.split(/[\\/]/).pop().replace(/\.lumalayout$/i, '')
+        addRecentProjectRef.current(path, name)
+      }
+    })
 
     return () => {
-      // IPC listeners cleanup is handled by Electron automatically
+      removeUndo?.()
+      removeRedo?.()
+      removeNewProject?.()
+      removeSave?.()
+      removeSaveAs?.()
+      removeOpenFile?.()
     }
-  }, [undo, redo, importData, exportData])
+  }, [undo, redo])
+
+  const handleNewProjectConfirm = (name) => {
+    newProject(name)
+    setShowNewProjectDialog(false)
+  }
 
   return (
     <div className={`flex flex-col h-screen w-screen overflow-hidden ${darkMode ? 'dark' : ''}`}>
@@ -63,6 +136,14 @@ export default function App() {
       {/* Overlays */}
       <ContextMenu />
       <LabelEditor />
+
+      {/* New Project Dialog */}
+      {showNewProjectDialog && (
+        <NewProjectDialog
+          onConfirm={handleNewProjectConfirm}
+          onCancel={() => setShowNewProjectDialog(false)}
+        />
+      )}
     </div>
   )
 }

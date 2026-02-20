@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import { useStore } from '../store/useStore'
 
 // Icon catalog — maps to SVG files in /icons folder
@@ -74,8 +74,12 @@ function ScenePanel() {
   const addScene = useStore(s => s.addScene)
   const deleteScene = useStore(s => s.deleteScene)
   const renameScene = useStore(s => s.renameScene)
+  const reorderScenes = useStore(s => s.reorderScenes)
+
   const [editingId, setEditingId] = useState(null)
   const [editValue, setEditValue] = useState('')
+  const [draggingId, setDraggingId] = useState(null)
+  const [dragOverId, setDragOverId] = useState(null)
 
   const startRename = (scene) => {
     setEditingId(scene.id)
@@ -86,6 +90,34 @@ function ScenePanel() {
       renameScene(editingId, editValue.trim())
     }
     setEditingId(null)
+  }
+
+  const handleSceneDragStart = (e, id) => {
+    setDraggingId(id)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', id)
+  }
+  const handleSceneDragOver = (e, id) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (id !== draggingId) setDragOverId(id)
+  }
+  const handleSceneDrop = (e, targetId) => {
+    e.preventDefault()
+    if (!draggingId || draggingId === targetId) { setDraggingId(null); setDragOverId(null); return }
+    const srcIdx = scenes.findIndex(s => s.id === draggingId)
+    const tgtIdx = scenes.findIndex(s => s.id === targetId)
+    if (srcIdx < 0 || tgtIdx < 0) return
+    const reordered = [...scenes]
+    const [removed] = reordered.splice(srcIdx, 1)
+    reordered.splice(tgtIdx, 0, removed)
+    reorderScenes(reordered)
+    setDraggingId(null)
+    setDragOverId(null)
+  }
+  const handleSceneDragEnd = () => {
+    setDraggingId(null)
+    setDragOverId(null)
   }
 
   return (
@@ -102,13 +134,22 @@ function ScenePanel() {
         {scenes.map(scene => (
           <div
             key={scene.id}
-            className={`flex items-center gap-1 px-2 py-1.5 rounded cursor-pointer group ${
+            draggable
+            onDragStart={e => handleSceneDragStart(e, scene.id)}
+            onDragOver={e => handleSceneDragOver(e, scene.id)}
+            onDrop={e => handleSceneDrop(e, scene.id)}
+            onDragEnd={handleSceneDragEnd}
+            className={`flex items-center gap-1 px-2 py-1.5 rounded cursor-pointer group transition-colors ${
               scene.id === currentSceneId
                 ? 'bg-white/15 text-white'
                 : 'text-white/60 hover:text-white hover:bg-white/8'
+            } ${dragOverId === scene.id && draggingId !== scene.id ? 'border-t-2 border-blue-400' : ''} ${
+              draggingId === scene.id ? 'opacity-40' : ''
             }`}
             onClick={() => setCurrentScene(scene.id)}
           >
+            {/* Drag handle */}
+            <span className="opacity-0 group-hover:opacity-30 text-white cursor-grab text-xs select-none mr-0.5" title="Drag to reorder">⠿</span>
             {editingId === scene.id ? (
               <input
                 className="flex-1 bg-transparent text-white text-xs outline-none border-b border-white/30"
@@ -141,9 +182,58 @@ function ScenePanel() {
   )
 }
 
+function RecentProjectsPanel() {
+  const recentProjects = useStore(s => s.recentProjects)
+  const importData = useStore(s => s.importData)
+  const addRecentProject = useStore(s => s.addRecentProject)
+
+  if (!recentProjects.length) return null
+
+  const handleOpen = async (entry) => {
+    if (!window.electronAPI) return
+    try {
+      const result = await window.electronAPI.openFile()
+      if (result?.success) {
+        importData(result.data, result.filePath)
+        addRecentProject(result.filePath, result.filePath.split(/[\\/]/).pop().replace(/\.lumalayout$/i, ''))
+      }
+    } catch {}
+  }
+
+  const handleOpenSpecific = async (entry) => {
+    if (!window.electronAPI) return
+    // Use the save-file IPC to read — instead use the open dialog pre-filtered
+    // Since we can't open a specific path directly, open with dialog
+    handleOpen(entry)
+  }
+
+  return (
+    <div className="border-b border-white/10 pb-2">
+      <div className="px-3 py-2">
+        <span className="text-xs font-semibold text-white/50 uppercase tracking-wider">Recent</span>
+      </div>
+      <div className="space-y-0.5 px-2">
+        {recentProjects.map(entry => (
+          <button
+            key={entry.path}
+            className="w-full text-left px-2 py-1 rounded text-white/50 hover:text-white hover:bg-white/8 transition-colors"
+            onClick={() => handleOpenSpecific(entry)}
+            title={entry.path}
+          >
+            <div className="text-xs truncate">{entry.name}</div>
+            <div className="text-xs text-white/25 truncate">{entry.path}</div>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function Sidebar() {
   const sidebarCollapsed = useStore(s => s.sidebarCollapsed)
   const mode = useStore(s => s.mode)
+  const projectName = useStore(s => s.projectName)
+  const currentFilePath = useStore(s => s.currentFilePath)
   const [openCategories, setOpenCategories] = useState({ 'Light Sources': true })
 
   const toggleCategory = (name) => {
@@ -166,8 +256,21 @@ export default function Sidebar() {
 
   return (
     <div className="w-56 flex-shrink-0 bg-sidebar flex flex-col h-full border-r border-white/10">
+      {/* Project name */}
+      <div className="px-3 py-2 border-b border-white/10">
+        <div className="text-xs font-semibold text-white/80 truncate" title={currentFilePath || 'Unsaved project'}>
+          {projectName}
+        </div>
+        <div className="text-xs text-white/30 truncate mt-0.5">
+          {currentFilePath ? currentFilePath.split(/[\\/]/).pop() : 'Unsaved'}
+        </div>
+      </div>
+
       {/* Scene panel */}
       <ScenePanel />
+
+      {/* Recent projects — shown when no file is open */}
+      {!currentFilePath && <RecentProjectsPanel />}
 
       {/* Icon library — only in lighting mode */}
       {mode === 'lighting' && (

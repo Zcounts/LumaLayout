@@ -58,6 +58,10 @@ const makeScene = (name = 'Scene 1') => ({
   windows: [],        // [{pointIndex, offset, width}]
 })
 
+const loadRecentProjects = () => {
+  try { return JSON.parse(localStorage.getItem('lumalayout-recent') || '[]') } catch { return [] }
+}
+
 const initialState = {
   // App-level state
   mode: 'lighting',         // 'blueprint' | 'lighting'
@@ -66,6 +70,11 @@ const initialState = {
   gridSize: 20,
   showGrid: true,
   sidebarCollapsed: false,
+
+  // Project metadata
+  projectName: 'Untitled Project',
+  currentFilePath: null,
+  recentProjects: loadRecentProjects(), // [{path, name, date}]
 
   // Canvas viewport
   stageX: 0,
@@ -135,6 +144,32 @@ const pushHistory = (state, snap) => {
 export const useStore = create((set, get) => ({
   ...initialState,
   currentSceneId: initialState.scenes[0]?.id,
+
+  // ---- Project ----
+  setProjectName: (name) => set({ projectName: name }),
+  setCurrentFilePath: (path) => set({ currentFilePath: path }),
+
+  addRecentProject: (path, name) => set(s => {
+    const entry = { path, name, date: Date.now() }
+    const filtered = s.recentProjects.filter(p => p.path !== path)
+    const newRecent = [entry, ...filtered].slice(0, 5)
+    try { localStorage.setItem('lumalayout-recent', JSON.stringify(newRecent)) } catch {}
+    return { recentProjects: newRecent }
+  }),
+
+  newProject: (name = 'Untitled Project') => {
+    const scene = makeScene('Scene 1')
+    set({
+      projectName: name,
+      currentFilePath: null,
+      scenes: [scene],
+      currentSceneId: scene.id,
+      selectedIds: [],
+      history: [],
+      historyIndex: -1,
+      mode: 'lighting',
+    })
+  },
 
   // ---- Mode ----
   setMode: (mode) => set({ mode, selectedIds: [] }),
@@ -513,15 +548,18 @@ export const useStore = create((set, get) => ({
     const state = get()
     return JSON.stringify({
       version: 1,
+      projectName: state.projectName,
       scenes: state.scenes,
       currentSceneId: state.currentSceneId,
     }, null, 2)
   },
 
-  importData: (json) => {
+  importData: (json, filePath = null) => {
     try {
       const data = JSON.parse(json)
       set({
+        projectName: data.projectName || 'Untitled Project',
+        currentFilePath: filePath || null,
         scenes: data.scenes || [makeScene()],
         currentSceneId: data.currentSceneId || data.scenes?.[0]?.id,
         selectedIds: [],
