@@ -1,0 +1,48 @@
+name: Build Windows Installer
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Vite frontend
+        run: npx vite build
+
+      - name: Build Electron Windows installer
+        run: npx electron-builder --win --publish never
+
+      - name: Get app version
+        id: get_version
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.get_version.outputs.VERSION }}
+          name: LumaLayout v${{ steps.get_version.outputs.VERSION }}
+          files: dist-electron/LumaLayout.Setup.${{ steps.get_version.outputs.VERSION }}.exe
+          draft: false
+          prerelease: false
