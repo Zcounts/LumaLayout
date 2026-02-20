@@ -65,6 +65,25 @@ function createWindow() {
           click: () => win.webContents.send('menu-save-as'),
         },
         { type: 'separator' },
+        {
+          label: 'Export',
+          submenu: [
+            {
+              label: 'Export Scene as PDF...',
+              accelerator: 'CmdOrCtrl+Shift+E',
+              click: () => win.webContents.send('menu-export-scene-pdf'),
+            },
+            {
+              label: 'Export Scene as PNG...',
+              click: () => win.webContents.send('menu-export-scene-png'),
+            },
+            {
+              label: 'Export All Scenes as PDF...',
+              click: () => win.webContents.send('menu-export-all-pdf'),
+            },
+          ],
+        },
+        { type: 'separator' },
         { role: 'quit' },
       ],
     },
@@ -135,12 +154,41 @@ ipcMain.handle('open-file', async () => {
   return { success: false }
 })
 
+// Read a specific file by path (used for Recent Projects)
+ipcMain.handle('read-file', async (event, { filePath }) => {
+  try {
+    const data = fs.readFileSync(filePath, 'utf-8')
+    app.addRecentDocument(filePath)
+    return { success: true, filePath, data }
+  } catch (err) {
+    return { success: false, error: err.message }
+  }
+})
+
 // Auto-save to userData temp file
 ipcMain.handle('auto-save', async (event, { data }) => {
   try {
     const autoSavePath = path.join(app.getPath('userData'), 'autosave.lumalayout')
     fs.writeFileSync(autoSavePath, data, 'utf-8')
     return { success: true }
+  } catch (err) {
+    return { success: false, error: err.message }
+  }
+})
+
+// Export binary file (PDF or PNG) — data is base64-encoded
+ipcMain.handle('save-export', async (event, { base64Data, defaultName, filters }) => {
+  try {
+    const result = await dialog.showSaveDialog({
+      defaultPath: defaultName,
+      filters,
+    })
+    if (!result.canceled && result.filePath) {
+      const buffer = Buffer.from(base64Data, 'base64')
+      fs.writeFileSync(result.filePath, buffer)
+      return { success: true, filePath: result.filePath }
+    }
+    return { success: false }
   } catch (err) {
     return { success: false, error: err.message }
   }

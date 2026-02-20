@@ -6,6 +6,7 @@ import Canvas from './components/Canvas'
 import ContextMenu from './components/ContextMenu'
 import LabelEditor from './components/LabelEditor'
 import NewProjectDialog from './components/NewProjectDialog'
+import { exportScenePDF, exportScenePNG, exportAllScenesPDF } from './exportUtils'
 
 export default function App() {
   const darkMode = useStore(s => s.darkMode)
@@ -19,6 +20,8 @@ export default function App() {
   const setCurrentFilePath = useStore(s => s.setCurrentFilePath)
   const addRecentProject = useStore(s => s.addRecentProject)
   const newProject = useStore(s => s.newProject)
+  const getCurrentScene = useStore(s => s.getCurrentScene)
+  const scenes = useStore(s => s.scenes)
 
   const [showNewProjectDialog, setShowNewProjectDialog] = useState(false)
 
@@ -29,6 +32,8 @@ export default function App() {
   const projectNameRef = useRef(projectName)
   const setCurrentFilePathRef = useRef(setCurrentFilePath)
   const addRecentProjectRef = useRef(addRecentProject)
+  const getCurrentSceneRef = useRef(getCurrentScene)
+  const scenesRef = useRef(scenes)
 
   useEffect(() => { exportDataRef.current = exportData }, [exportData])
   useEffect(() => { importDataRef.current = importData }, [importData])
@@ -36,6 +41,8 @@ export default function App() {
   useEffect(() => { projectNameRef.current = projectName }, [projectName])
   useEffect(() => { setCurrentFilePathRef.current = setCurrentFilePath }, [setCurrentFilePath])
   useEffect(() => { addRecentProjectRef.current = addRecentProject }, [addRecentProject])
+  useEffect(() => { getCurrentSceneRef.current = getCurrentScene }, [getCurrentScene])
+  useEffect(() => { scenesRef.current = scenes }, [scenes])
 
   // Update window title
   useEffect(() => {
@@ -93,6 +100,54 @@ export default function App() {
       }
     })
 
+    const removeExportScenePDF = window.electronAPI.onMenuExportScenePDF(async () => {
+      try {
+        const scene = getCurrentSceneRef.current()
+        if (!scene) return
+        const base64Data = await exportScenePDF(scene)
+        const safeName = scene.name.replace(/[^a-z0-9_-]/gi, '_')
+        await window.electronAPI.saveExport({
+          base64Data,
+          defaultName: `${safeName}.pdf`,
+          filters: [{ name: 'PDF Files', extensions: ['pdf'] }],
+        })
+      } catch (err) {
+        console.error('Export scene PDF failed:', err)
+      }
+    })
+
+    const removeExportScenePNG = window.electronAPI.onMenuExportScenePNG(async () => {
+      try {
+        const scene = getCurrentSceneRef.current()
+        if (!scene) return
+        const base64Data = await exportScenePNG(scene)
+        const safeName = scene.name.replace(/[^a-z0-9_-]/gi, '_')
+        await window.electronAPI.saveExport({
+          base64Data,
+          defaultName: `${safeName}.png`,
+          filters: [{ name: 'PNG Images', extensions: ['png'] }],
+        })
+      } catch (err) {
+        console.error('Export scene PNG failed:', err)
+      }
+    })
+
+    const removeExportAllPDF = window.electronAPI.onMenuExportAllPDF(async () => {
+      try {
+        const allScenes = scenesRef.current
+        if (!allScenes?.length) return
+        const base64Data = await exportAllScenesPDF(allScenes)
+        const projectSafeName = (projectNameRef.current || 'project').replace(/[^a-z0-9_-]/gi, '_')
+        await window.electronAPI.saveExport({
+          base64Data,
+          defaultName: `${projectSafeName}_all_scenes.pdf`,
+          filters: [{ name: 'PDF Files', extensions: ['pdf'] }],
+        })
+      } catch (err) {
+        console.error('Export all scenes PDF failed:', err)
+      }
+    })
+
     return () => {
       removeUndo?.()
       removeRedo?.()
@@ -100,6 +155,9 @@ export default function App() {
       removeSave?.()
       removeSaveAs?.()
       removeOpenFile?.()
+      removeExportScenePDF?.()
+      removeExportScenePNG?.()
+      removeExportAllPDF?.()
     }
   }, [undo, redo])
 

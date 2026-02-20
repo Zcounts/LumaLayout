@@ -189,22 +189,15 @@ function RecentProjectsPanel() {
 
   if (!recentProjects.length) return null
 
-  const handleOpen = async (entry) => {
-    if (!window.electronAPI) return
-    try {
-      const result = await window.electronAPI.openFile()
-      if (result?.success) {
-        importData(result.data, result.filePath)
-        addRecentProject(result.filePath, result.filePath.split(/[\\/]/).pop().replace(/\.lumalayout$/i, ''))
-      }
-    } catch {}
-  }
-
   const handleOpenSpecific = async (entry) => {
     if (!window.electronAPI) return
-    // Use the save-file IPC to read — instead use the open dialog pre-filtered
-    // Since we can't open a specific path directly, open with dialog
-    handleOpen(entry)
+    try {
+      const result = await window.electronAPI.readFile({ filePath: entry.path })
+      if (result?.success) {
+        importData(result.data, result.filePath)
+        addRecentProject(result.filePath, entry.name)
+      }
+    } catch {}
   }
 
   return (

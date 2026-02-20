@@ -5,6 +5,7 @@ import {
 } from 'react-konva'
 import useImage from 'use-image'
 import { useStore } from '../store/useStore'
+import { sharedStageRef } from '../canvasRef'
 
 // ---- Grid Layer ----
 function GridLayer({ width, height, scale, offsetX, offsetY, gridSize }) {
@@ -105,6 +106,12 @@ export default function Canvas() {
   const transformerRef = useRef(null)
   const layerRef = useRef(null)
   const containerRef = useRef(null)
+
+  // Expose stage to App.jsx for export
+  useEffect(() => {
+    sharedStageRef.current = stageRef.current
+    return () => { sharedStageRef.current = null }
+  })
 
   const mode = useStore(s => s.mode)
   const snapToGrid = useStore(s => s.snapToGrid)
