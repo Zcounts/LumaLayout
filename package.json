@@ -37,16 +37,25 @@
   "build": {
     "appId": "com.lumalayout.app",
     "productName": "LumaLayout",
+    "icon": "build/icon",
     "directories": {
       "output": "dist-electron"
     },
     "win": {
       "target": "nsis",
-      "artifactName": "${productName}.Setup.${version}.exe"
+      "icon": "build/icon.ico",
+      "artifactName": "LumaLayout.Setup.${version}.exe"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
-    }
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "icons/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ]
   }
 }
