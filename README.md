@@ -1,28 +1,28 @@
-# LumaLayout — Lighting Diagram Desktop App
+# LightPlot — Lighting Diagram Desktop App
 
 ## Full Project Specification
 
-Build a Windows 11 desktop application using Electron + React for creating 
-professional film and photography lighting diagrams. The app provides a 
-top-down canvas view where users can design lighting setups by placing and 
-arranging icons representing lights, cameras, stands, flags, practicals, 
+Build a Windows 11 desktop application using Electron + React for creating
+professional film and photography lighting diagrams. The app provides a
+top-down canvas view where users can design lighting setups by placing and
+arranging icons representing lights, cameras, stands, flags, practicals,
 and set elements.
 
 ## Two Modes
 
 ### Blueprint Mode
 Used to design the physical space being lit. In this mode the user can:
-- Draw room outlines by clicking to place corner points, closing the shape 
+- Draw room outlines by clicking to place corner points, closing the shape
   to complete it
 - Add doors (arc symbol) and windows (gap in wall) to the room outline
 - Place basic shapes: rectangle, circle, triangle — scalable and rotatable
 - Change the fill color of any shape
 - Label any shape with custom text
-- Shapes placed in Blueprint Mode are locked in Lighting Mode and cannot 
+- Shapes placed in Blueprint Mode are locked in Lighting Mode and cannot
   be accidentally moved
 
 ### Lighting Mode
-Used to place and arrange lighting equipment and other production elements. 
+Used to place and arrange lighting equipment and other production elements.
 In this mode the user can:
 - Drag and drop icons from a sidebar panel onto the canvas
 - Move, rotate, and scale any placed icon
@@ -55,21 +55,21 @@ Each icon in the sidebar is draggable onto the canvas. Once placed:
 - Drag to move
 - Rotate handle appears on selection
 - Scale handles appear on corners of selection
-- Right-click for context menu: Duplicate, Delete, Add Label, Bring to Front, 
+- Right-click for context menu: Duplicate, Delete, Add Label, Bring to Front,
   Send to Back
 
 ## Scenes
-- A single .Lumalayout file can contain multiple scenes
+- A single .lightplot file can contain multiple scenes
 - Each scene has its own canvas, name, and set of elements
-- Scenes are listed in a left sidebar and can be added, renamed, reordered, 
+- Scenes are listed in a left sidebar and can be added, renamed, reordered,
   or deleted
 - Switching scenes preserves all elements on each scene
 
 ## Project Management
 - New Project: blank canvas, prompts for project name
-- Save: saves to .Lumalayout JSON file (all element positions, rotations, 
+- Save: saves to .lightplot JSON file (all element positions, rotations,
   scales, colors, labels, and SVG references)
-- Load: opens .Lumalayout file and restores full state
+- Load: opens .lightplot file and restores full state
 - Auto-save: every 60 seconds to a temp file
 - Recent Projects: list of last 5 opened files on home screen
 
@@ -82,14 +82,14 @@ Each icon in the sidebar is draggable onto the canvas. Once placed:
 ## UI & Settings
 - Light/dark mode toggle (UI only — canvas background stays white/light)
 - Sidebar can be collapsed to maximize canvas space
-- App name: LumaLayout
+- App name: LightPlot
 - Zoom level displayed in bottom bar
 - Current mode (Blueprint/Lighting) clearly indicated in toolbar
 
 ## Tech Stack
 - Electron + React + TailwindCSS
 - Zustand for state management
-- Konva.js (react-konva) for the canvas — handles drag, rotate, scale, 
+- Konva.js (react-konva) for the canvas — handles drag, rotate, scale,
   and SVG rendering natively
 - electron-builder for Windows installer
 - GitHub Actions for automatic .exe release builds
@@ -98,12 +98,12 @@ Each icon in the sidebar is draggable onto the canvas. Once placed:
 - Clean, minimal, professional
 - White canvas with subtle grid
 - Dark sidebar panel for icon library
-- Clear visual distinction between Blueprint Mode and Lighting Mode 
+- Clear visual distinction between Blueprint Mode and Lighting Mode
   (toolbar indicator, cursor change)
 
 ## Icon Files
-All icons are individual SVG files in the /icons folder. They should be 
-named clearly by category and type, e.g.:
+All icons are individual SVG files in the /icons folder. They are named
+clearly by category and type, e.g.:
 - camera-dslr.svg
 - light-fresnel.svg
 - light-softbox.svg
@@ -111,6 +111,13 @@ named clearly by category and type, e.g.:
 - stand-cstand.svg
 - flag.svg
 - marker-actor.svg
+
+## File Format
+Projects are saved as `.lightplot` files — JSON files containing:
+- Project name and metadata
+- Array of scenes, each with name and elements array
+- Each element: type, svgRef, x, y, rotation, scaleX, scaleY, fill, label,
+  zIndex, mode (blueprint/lighting)
 
 ## Build Sessions
 - Session 1: Scaffold ✅
