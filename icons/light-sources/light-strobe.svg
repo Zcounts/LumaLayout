@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80">
+  <!-- Main body -->
+  <rect x="20" y="25" width="40" height="30" rx="4" fill="#2a2a2a" stroke="#555" stroke-width="2"/>
+  <!-- Flash tube (circular) -->
+  <circle cx="40" cy="40" r="10" fill="none" stroke="#ffffaa" stroke-width="3"/>
+  <!-- Reflector -->
+  <circle cx="40" cy="40" r="16" fill="none" stroke="#888" stroke-width="1.5"/>
+  <!-- Mount -->
+  <rect x="34" y="10" width="12" height="16" rx="2" fill="#444" stroke="#666" stroke-width="1.5"/>
+  <!-- Modeling light indicator -->
+  <circle cx="40" cy="40" r="3" fill="#ffffaa"/>
+  <!-- Sync port -->
+  <circle cx="62" cy="40" r="3" fill="#333" stroke="#666" stroke-width="1"/>
+  <!-- Light burst -->
+  <line x1="40" y1="4" x2="40" y2="12" stroke="#ffee44" stroke-width="2"/>
+  <line x1="52" y1="8" x2="48" y2="14" stroke="#ffee44" stroke-width="1.5"/>
+  <line x1="28" y1="8" x2="32" y2="14" stroke="#ffee44" stroke-width="1.5"/>
+</svg>

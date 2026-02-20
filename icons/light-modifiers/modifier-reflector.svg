@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 60">
+  <!-- Reflector disc (oval) -->
+  <ellipse cx="40" cy="30" rx="34" ry="22" fill="#f0f0e8" stroke="#aaa" stroke-width="2"/>
+  <!-- Reflective surface pattern -->
+  <ellipse cx="40" cy="30" rx="28" ry="17" fill="none" stroke="#ccc" stroke-width="0.75"/>
+  <ellipse cx="40" cy="30" rx="20" ry="12" fill="none" stroke="#ccc" stroke-width="0.75"/>
+  <ellipse cx="40" cy="30" rx="12" ry="7" fill="none" stroke="#ccc" stroke-width="0.75"/>
+  <!-- Center highlight -->
+  <ellipse cx="40" cy="30" rx="5" ry="3" fill="#e8e8d0"/>
+  <!-- Handle grip at edge -->
+  <rect x="72" y="27" width="5" height="6" rx="2" fill="#666" stroke="#444" stroke-width="1"/>
+</svg>

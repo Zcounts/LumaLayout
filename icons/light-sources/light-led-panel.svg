@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 60">
+  <!-- Panel body -->
+  <rect x="8" y="8" width="64" height="44" rx="3" fill="#1a1a1a" stroke="#555" stroke-width="2"/>
+  <!-- LED grid -->
+  <circle cx="22" cy="22" r="3" fill="#ffffaa"/>
+  <circle cx="34" cy="22" r="3" fill="#ffffaa"/>
+  <circle cx="46" cy="22" r="3" fill="#ffffaa"/>
+  <circle cx="58" cy="22" r="3" fill="#ffffaa"/>
+  <circle cx="22" cy="34" r="3" fill="#ffffaa"/>
+  <circle cx="34" cy="34" r="3" fill="#ffffaa"/>
+  <circle cx="46" cy="34" r="3" fill="#ffffaa"/>
+  <circle cx="58" cy="34" r="3" fill="#ffffaa"/>
+  <circle cx="22" cy="46" r="3" fill="#ffffaa"/>
+  <circle cx="34" cy="46" r="3" fill="#ffffaa"/>
+  <circle cx="46" cy="46" r="3" fill="#ffffaa"/>
+  <circle cx="58" cy="46" r="3" fill="#ffffaa"/>
+  <!-- Handle -->
+  <rect x="32" y="3" width="16" height="6" rx="2" fill="#333" stroke="#555" stroke-width="1"/>
+</svg>

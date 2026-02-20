@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60">
+  <!-- X mark position indicator -->
+  <circle cx="30" cy="30" r="26" fill="none" stroke="#4f96ff" stroke-width="2" stroke-dasharray="6,4"/>
+  <!-- Cross/X lines -->
+  <line x1="16" y1="16" x2="44" y2="44" stroke="#4f96ff" stroke-width="2.5"/>
+  <line x1="44" y1="16" x2="16" y2="44" stroke="#4f96ff" stroke-width="2.5"/>
+  <!-- Center dot -->
+  <circle cx="30" cy="30" r="4" fill="#4f96ff"/>
+  <!-- Direction arrow -->
+  <polygon points="30,4 36,14 24,14" fill="#ff6644" stroke="#cc4422" stroke-width="1"/>
+</svg>

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 30">
+  <!-- Ruler body -->
+  <rect x="2" y="8" width="76" height="16" rx="2" fill="#f0e8c8" stroke="#a08848" stroke-width="1.5"/>
+  <!-- Tick marks -->
+  <line x1="10" y1="8" x2="10" y2="18" stroke="#888" stroke-width="1"/>
+  <line x1="20" y1="8" x2="20" y2="22" stroke="#888" stroke-width="1.5"/>
+  <line x1="30" y1="8" x2="30" y2="18" stroke="#888" stroke-width="1"/>
+  <line x1="40" y1="8" x2="40" y2="24" stroke="#888" stroke-width="2"/>
+  <line x1="50" y1="8" x2="50" y2="18" stroke="#888" stroke-width="1"/>
+  <line x1="60" y1="8" x2="60" y2="22" stroke="#888" stroke-width="1.5"/>
+  <line x1="70" y1="8" x2="70" y2="18" stroke="#888" stroke-width="1"/>
+</svg>

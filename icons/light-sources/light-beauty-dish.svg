@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80">
+  <!-- Main dish (circle) -->
+  <circle cx="40" cy="44" r="30" fill="#d8d8d8" stroke="#888" stroke-width="2"/>
+  <!-- Inner deflector plate -->
+  <circle cx="40" cy="44" r="10" fill="#bbb" stroke="#999" stroke-width="1.5"/>
+  <!-- Center light source -->
+  <circle cx="40" cy="44" r="5" fill="#ffffaa" stroke="#ffee44" stroke-width="1"/>
+  <!-- Mount arm -->
+  <rect x="36" y="6" width="8" height="18" rx="2" fill="#555" stroke="#777" stroke-width="1.5"/>
+  <!-- Light bounce arrows -->
+  <path d="M14,56 Q10,44 14,32" fill="none" stroke="#ffee88" stroke-width="1.5" stroke-dasharray="3,2" marker-end="url(#arr)"/>
+  <path d="M66,56 Q70,44 66,32" fill="none" stroke="#ffee88" stroke-width="1.5" stroke-dasharray="3,2"/>
+</svg>

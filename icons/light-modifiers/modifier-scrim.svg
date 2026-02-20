@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 60">
+  <!-- Frame -->
+  <rect x="5" y="8" width="55" height="44" rx="2" fill="none" stroke="#888" stroke-width="2.5"/>
+  <!-- Mesh pattern lines horizontal -->
+  <line x1="5" y1="16" x2="60" y2="16" stroke="#aaa" stroke-width="0.75"/>
+  <line x1="5" y1="24" x2="60" y2="24" stroke="#aaa" stroke-width="0.75"/>
+  <line x1="5" y1="32" x2="60" y2="32" stroke="#aaa" stroke-width="0.75"/>
+  <line x1="5" y1="40" x2="60" y2="40" stroke="#aaa" stroke-width="0.75"/>
+  <line x1="5" y1="48" x2="60" y2="48" stroke="#aaa" stroke-width="0.75"/>
+  <!-- Mesh pattern lines vertical -->
+  <line x1="16" y1="8" x2="16" y2="52" stroke="#aaa" stroke-width="0.75"/>
+  <line x1="27" y1="8" x2="27" y2="52" stroke="#aaa" stroke-width="0.75"/>
+  <line x1="38" y1="8" x2="38" y2="52" stroke="#aaa" stroke-width="0.75"/>
+  <line x1="49" y1="8" x2="49" y2="52" stroke="#aaa" stroke-width="0.75"/>
+  <!-- Handle -->
+  <rect x="60" y="26" width="15" height="8" rx="3" fill="#888" stroke="#666" stroke-width="1.5"/>
+</svg>

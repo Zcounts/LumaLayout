@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 80">
+  <!-- Main column -->
+  <rect x="28" y="5" width="5" height="52" rx="1.5" fill="#666" stroke="#444" stroke-width="1.5"/>
+  <!-- Collar clamp -->
+  <rect x="25" y="30" width="11" height="6" rx="2" fill="#555" stroke="#333" stroke-width="1.5"/>
+  <!-- Top mounting pin -->
+  <rect x="29" y="1" width="3" height="6" rx="1" fill="#888" stroke="#666" stroke-width="1"/>
+  <!-- Three-leg base -->
+  <line x1="30" y1="57" x2="8" y2="75" stroke="#666" stroke-width="3.5" stroke-linecap="round"/>
+  <line x1="30" y1="57" x2="52" y2="75" stroke="#666" stroke-width="3.5" stroke-linecap="round"/>
+  <line x1="30" y1="57" x2="30" y2="78" stroke="#666" stroke-width="3.5" stroke-linecap="round"/>
+  <!-- Feet rubber caps -->
+  <ellipse cx="8" cy="76" rx="3" ry="2" fill="#333"/>
+  <ellipse cx="52" cy="76" rx="3" ry="2" fill="#333"/>
+  <ellipse cx="30" cy="78" rx="3" ry="2" fill="#333"/>
+</svg>

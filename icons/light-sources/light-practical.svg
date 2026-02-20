@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 80">
+  <!-- Lamp shade -->
+  <polygon points="10,30 50,30 58,58 2,58" fill="#c8a060" stroke="#966030" stroke-width="2"/>
+  <!-- Lamp body -->
+  <rect x="26" y="10" width="8" height="22" rx="2" fill="#888" stroke="#666" stroke-width="1.5"/>
+  <!-- Bulb -->
+  <circle cx="30" cy="25" r="6" fill="#ffffcc" stroke="#ffee44" stroke-width="1"/>
+  <!-- Base -->
+  <rect x="22" y="58" width="16" height="6" rx="2" fill="#666" stroke="#444" stroke-width="1.5"/>
+  <!-- Light rays from bottom of shade -->
+  <line x1="20" y1="64" x2="15" y2="75" stroke="#ffee88" stroke-width="1.5" stroke-dasharray="3,2"/>
+  <line x1="30" y1="64" x2="30" y2="76" stroke="#ffee88" stroke-width="1.5" stroke-dasharray="3,2"/>
+  <line x1="40" y1="64" x2="45" y2="75" stroke="#ffee88" stroke-width="1.5" stroke-dasharray="3,2"/>
+</svg>
