@@ -11,6 +11,7 @@ function createWindow() {
     minWidth: 900,
     minHeight: 600,
     title: 'LumaLayout',
+    icon: path.join(__dirname, '../ICON.png'),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
