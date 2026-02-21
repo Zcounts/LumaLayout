@@ -54,7 +54,7 @@ function RoomLayer({ scene, scale }) {
 
 // ---- Element image (just the visual, no positioning) ----
 function ElementImage({ element }) {
-  const [image] = useImage(`/icons/${encodeURIComponent(element.iconPath)}`)
+  const [image] = useImage(`./icons/${encodeURIComponent(element.iconPath)}`)
   const hw = element.width / 2
   const hh = element.height / 2
   if (image) {

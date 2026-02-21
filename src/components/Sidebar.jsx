@@ -241,7 +241,7 @@ export default function Sidebar() {
     e.dataTransfer.effectAllowed = 'copy'
     // Create a drag image
     const img = new Image()
-    img.src = `/icons/${encodeURIComponent(icon.file)}`
+    img.src = `./icons/${encodeURIComponent(icon.file)}`
     e.dataTransfer.setDragImage(img, 30, 30)
   }
 
@@ -291,9 +291,9 @@ export default function Sidebar() {
                       title={`${icon.name} — drag to canvas`}
                     >
                       <img
-                        src={`/icons/${encodeURIComponent(icon.file)}`}
+                        src={`./icons/${encodeURIComponent(icon.file)}`}
                         alt={icon.name}
-                        onError={e => { e.target.src = '/icons/plot icons-01.svg' }}
+                        onError={e => { e.target.src = './icons/plot%20icons-01.svg' }}
                       />
                       <span>{icon.name}</span>
                     </div>
