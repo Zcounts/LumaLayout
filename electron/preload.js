@@ -14,6 +14,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   autoSave: (data) => ipcRenderer.invoke('auto-save', data),
   saveExport: (data) => ipcRenderer.invoke('save-export', data),
 
+  // Save multiple PNG files into a user-chosen folder
+  saveExportAllPng: (data) => ipcRenderer.invoke('save-export-all-png', data),
+
   // Menu event listeners (each returns a cleanup function)
   onMenuNewProject: (cb) => on('menu-new-project', cb),
   onMenuOpenFile: (cb) => on('menu-open-file', (e, data) => cb(data)),
@@ -23,7 +26,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onMenuRedo: (cb) => on('menu-redo', cb),
   onMenuDuplicate: (cb) => on('menu-duplicate', cb),
   onMenuDelete: (cb) => on('menu-delete', cb),
-  onMenuExportScenePDF: (cb) => on('menu-export-scene-pdf', cb),
-  onMenuExportScenePNG: (cb) => on('menu-export-scene-png', cb),
   onMenuExportAllPDF: (cb) => on('menu-export-all-pdf', cb),
+  onMenuExportAllPNG: (cb) => on('menu-export-all-png', cb),
 })

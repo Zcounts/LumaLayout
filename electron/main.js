@@ -4,30 +4,42 @@ const fs = require('fs')
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
 
-function createWindow() {
-  const win = new BrowserWindow({
-    width: 1400,
-    height: 900,
-    minWidth: 900,
-    minHeight: 600,
-    title: 'LumaLayout',
-    icon: path.join(__dirname, '../ICON.png'),
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js'),
-    },
-    backgroundColor: '#1a1a2e',
-  })
+// ---- Recent files (persisted to userData JSON) ----
+function recentFilesPath() {
+  return path.join(app.getPath('userData'), 'recent-files.json')
+}
 
-  if (isDev) {
-    win.loadURL('http://localhost:5173')
-    win.webContents.openDevTools({ mode: 'detach' })
-  } else {
-    win.loadFile(path.join(__dirname, '../dist/index.html'))
-  }
+function loadRecentFiles() {
+  try { return JSON.parse(fs.readFileSync(recentFilesPath(), 'utf-8')) } catch { return [] }
+}
 
-  // Build application menu
+function saveRecentFile(filePath) {
+  const name = path.basename(filePath, '.lumalayout')
+  const entry = { path: filePath, name, date: Date.now() }
+  const existing = loadRecentFiles().filter(f => f.path !== filePath)
+  const updated = [entry, ...existing].slice(0, 8)
+  try { fs.writeFileSync(recentFilesPath(), JSON.stringify(updated), 'utf-8') } catch {}
+  return updated
+}
+
+// ---- Menu builder (called on startup and whenever recent files change) ----
+function buildMenu(win, recentFiles) {
+  const recent = recentFiles && recentFiles.length > 0
+    ? recentFiles.map(entry => ({
+        label: entry.name,
+        sublabel: entry.path,
+        click: () => {
+          try {
+            const data = fs.readFileSync(entry.path, 'utf-8')
+            app.addRecentDocument(entry.path)
+            win.webContents.send('menu-open-file', { path: entry.path, data })
+          } catch {
+            dialog.showErrorBox('Cannot Open File', `Could not read:\n${entry.path}`)
+          }
+        },
+      }))
+    : [{ label: 'No recent projects', enabled: false }]
+
   const template = [
     {
       label: 'File',
@@ -50,9 +62,15 @@ function createWindow() {
               const filePath = result.filePaths[0]
               const data = fs.readFileSync(filePath, 'utf-8')
               app.addRecentDocument(filePath)
+              const updated = saveRecentFile(filePath)
+              buildMenu(win, updated)
               win.webContents.send('menu-open-file', { path: filePath, data })
             }
           },
+        },
+        {
+          label: 'Recent Projects',
+          submenu: recent,
         },
         { type: 'separator' },
         {
@@ -70,17 +88,13 @@ function createWindow() {
           label: 'Export',
           submenu: [
             {
-              label: 'Export Scene as PDF...',
-              accelerator: 'CmdOrCtrl+Shift+E',
-              click: () => win.webContents.send('menu-export-scene-pdf'),
-            },
-            {
-              label: 'Export Scene as PNG...',
-              click: () => win.webContents.send('menu-export-scene-png'),
-            },
-            {
               label: 'Export All Scenes as PDF...',
+              accelerator: 'CmdOrCtrl+Shift+E',
               click: () => win.webContents.send('menu-export-all-pdf'),
+            },
+            {
+              label: 'Export All Scenes as PNG...',
+              click: () => win.webContents.send('menu-export-all-png'),
             },
           ],
         },
@@ -117,12 +131,48 @@ function createWindow() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }
 
-// IPC handlers for file operations
+function createWindow() {
+  // Resolve ICON.png correctly in both dev and packaged modes
+  const iconPath = app.isPackaged
+    ? path.join(process.resourcesPath, 'ICON.png')
+    : path.join(__dirname, '../ICON.png')
+
+  const win = new BrowserWindow({
+    width: 1400,
+    height: 900,
+    minWidth: 900,
+    minHeight: 600,
+    title: 'LumaLayout',
+    icon: iconPath,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js'),
+    },
+    backgroundColor: '#1a1a2e',
+  })
+
+  if (isDev) {
+    win.loadURL('http://localhost:5173')
+    win.webContents.openDevTools({ mode: 'detach' })
+  } else {
+    win.loadFile(path.join(__dirname, '../dist/index.html'))
+  }
+
+  buildMenu(win, loadRecentFiles())
+}
+
+// ---- IPC handlers ----
+
 ipcMain.handle('save-file', async (event, { filePath, data }) => {
   try {
     if (filePath) {
       fs.writeFileSync(filePath, data, 'utf-8')
       app.addRecentDocument(filePath)
+      const updated = saveRecentFile(filePath)
+      // Rebuild menu to reflect new recent entry
+      const win = BrowserWindow.getFocusedWindow()
+      if (win) buildMenu(win, updated)
       return { success: true, filePath }
     } else {
       const result = await dialog.showSaveDialog({
@@ -132,6 +182,9 @@ ipcMain.handle('save-file', async (event, { filePath, data }) => {
       if (!result.canceled && result.filePath) {
         fs.writeFileSync(result.filePath, data, 'utf-8')
         app.addRecentDocument(result.filePath)
+        const updated = saveRecentFile(result.filePath)
+        const win = BrowserWindow.getFocusedWindow()
+        if (win) buildMenu(win, updated)
         return { success: true, filePath: result.filePath }
       }
       return { success: false }
@@ -150,12 +203,15 @@ ipcMain.handle('open-file', async () => {
     const filePath = result.filePaths[0]
     const data = fs.readFileSync(filePath, 'utf-8')
     app.addRecentDocument(filePath)
+    const updated = saveRecentFile(filePath)
+    const win = BrowserWindow.getFocusedWindow()
+    if (win) buildMenu(win, updated)
     return { success: true, filePath, data }
   }
   return { success: false }
 })
 
-// Read a specific file by path (used for Recent Projects)
+// Read a specific file by path (used internally)
 ipcMain.handle('read-file', async (event, { filePath }) => {
   try {
     const data = fs.readFileSync(filePath, 'utf-8')
@@ -177,7 +233,7 @@ ipcMain.handle('auto-save', async (event, { data }) => {
   }
 })
 
-// Export binary file (PDF or PNG) — data is base64-encoded
+// Export a single binary file (PDF or PNG) — data is base64-encoded
 ipcMain.handle('save-export', async (event, { base64Data, defaultName, filters }) => {
   try {
     const result = await dialog.showSaveDialog({
@@ -190,6 +246,25 @@ ipcMain.handle('save-export', async (event, { base64Data, defaultName, filters }
       return { success: true, filePath: result.filePath }
     }
     return { success: false }
+  } catch (err) {
+    return { success: false, error: err.message }
+  }
+})
+
+// Export all scenes as individual PNG files into a user-chosen folder
+ipcMain.handle('save-export-all-png', async (event, { files }) => {
+  try {
+    const result = await dialog.showOpenDialog({
+      title: 'Select folder to save PNG files',
+      properties: ['openDirectory', 'createDirectory'],
+    })
+    if (result.canceled || !result.filePaths.length) return { success: false }
+    const folder = result.filePaths[0]
+    for (const file of files) {
+      const buffer = Buffer.from(file.base64Data, 'base64')
+      fs.writeFileSync(path.join(folder, file.name), buffer)
+    }
+    return { success: true, folder }
   } catch (err) {
     return { success: false, error: err.message }
   }

@@ -41,6 +41,12 @@
     "directories": {
       "output": "dist-electron"
     },
+    "extraResources": [
+      {
+        "from": "ICON.png",
+        "to": "ICON.png"
+      }
+    ],
     "win": {
       "target": "nsis",
       "icon": "build/icon.ico",

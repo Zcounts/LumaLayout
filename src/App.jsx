@@ -6,7 +6,7 @@ import Canvas from './components/Canvas'
 import ContextMenu from './components/ContextMenu'
 import LabelEditor from './components/LabelEditor'
 import NewProjectDialog from './components/NewProjectDialog'
-import { exportScenePDF, exportScenePNG, exportAllScenesPDF } from './exportUtils'
+import { exportAllScenesPDF, exportAllScenesPNG } from './exportUtils'
 
 export default function App() {
   const darkMode = useStore(s => s.darkMode)
@@ -100,38 +100,6 @@ export default function App() {
       }
     })
 
-    const removeExportScenePDF = window.electronAPI.onMenuExportScenePDF(async () => {
-      try {
-        const scene = getCurrentSceneRef.current()
-        if (!scene) return
-        const base64Data = await exportScenePDF(scene)
-        const safeName = scene.name.replace(/[^a-z0-9_-]/gi, '_')
-        await window.electronAPI.saveExport({
-          base64Data,
-          defaultName: `${safeName}.pdf`,
-          filters: [{ name: 'PDF Files', extensions: ['pdf'] }],
-        })
-      } catch (err) {
-        console.error('Export scene PDF failed:', err)
-      }
-    })
-
-    const removeExportScenePNG = window.electronAPI.onMenuExportScenePNG(async () => {
-      try {
-        const scene = getCurrentSceneRef.current()
-        if (!scene) return
-        const base64Data = await exportScenePNG(scene)
-        const safeName = scene.name.replace(/[^a-z0-9_-]/gi, '_')
-        await window.electronAPI.saveExport({
-          base64Data,
-          defaultName: `${safeName}.png`,
-          filters: [{ name: 'PNG Images', extensions: ['png'] }],
-        })
-      } catch (err) {
-        console.error('Export scene PNG failed:', err)
-      }
-    })
-
     const removeExportAllPDF = window.electronAPI.onMenuExportAllPDF(async () => {
       try {
         const allScenes = scenesRef.current
@@ -148,6 +116,17 @@ export default function App() {
       }
     })
 
+    const removeExportAllPNG = window.electronAPI.onMenuExportAllPNG(async () => {
+      try {
+        const allScenes = scenesRef.current
+        if (!allScenes?.length) return
+        const files = await exportAllScenesPNG(allScenes)
+        await window.electronAPI.saveExportAllPng({ files })
+      } catch (err) {
+        console.error('Export all scenes PNG failed:', err)
+      }
+    })
+
     return () => {
       removeUndo?.()
       removeRedo?.()
@@ -155,9 +134,8 @@ export default function App() {
       removeSave?.()
       removeSaveAs?.()
       removeOpenFile?.()
-      removeExportScenePDF?.()
-      removeExportScenePNG?.()
       removeExportAllPDF?.()
+      removeExportAllPNG?.()
     }
   }, [undo, redo])
 

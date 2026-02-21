@@ -436,6 +436,24 @@ export const useStore = create((set, get) => ({
     }),
   clearShapeSelection: () => set({ selectedShapeIds: [] }),
 
+  // Delete all currently selected blueprint shapes (and room if '__room__' is selected)
+  deleteSelectedShapes: () => {
+    const state = get()
+    const { selectedShapeIds } = state
+    if (selectedShapeIds.length === 0) return
+    const snap = snapshot(state)
+    const hasRoom = selectedShapeIds.includes('__room__')
+    const shapeIds = selectedShapeIds.filter(id => id !== '__room__')
+    set(s => ({
+      ...updateCurrentScene(s, sc => ({
+        shapes: shapeIds.length > 0 ? sc.shapes.filter(sh => !shapeIds.includes(sh.id)) : sc.shapes,
+        ...(hasRoom ? { roomPoints: [], roomClosed: false, doors: [], windows: [] } : {}),
+      })),
+      selectedShapeIds: [],
+      ...pushHistory(s, snap),
+    }))
+  },
+
   // ---- Drag selection ----
   setDragSelecting: (val) => set({ dragSelecting: val }),
   setSelectionRect: (rect) => set({ selectionRect: rect }),
@@ -476,6 +494,12 @@ export const useStore = create((set, get) => ({
   },
 
   // ---- Room drawing (Blueprint Mode) ----
+  // Replace all room points at once (used after drag/transform; caller pushes history separately)
+  setRoomPoints: (points) =>
+    set(s => ({
+      ...updateCurrentScene(s, sc => ({ roomPoints: points })),
+    })),
+
   addRoomPoint: (point) => {
     const state = get()
     const snap = snapshot(state)
