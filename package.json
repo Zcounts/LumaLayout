@@ -37,7 +37,6 @@
   "build": {
     "appId": "com.lumalayout.app",
     "productName": "LumaLayout",
-    "publisherName": "fairlyOdd L.L.C",
     "icon": "build/icon",
     "directories": {
       "output": "dist-electron"
@@ -51,7 +50,8 @@
     "win": {
       "target": "nsis",
       "icon": "build/icon.ico",
-      "artifactName": "LumaLayout.Setup.${version}.exe"
+      "artifactName": "LumaLayout.Setup.${version}.exe",
+      "publisherName": "fairlyOdd L.L.C"
     },
     "nsis": {
       "oneClick": false,
