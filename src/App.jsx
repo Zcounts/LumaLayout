@@ -204,6 +204,14 @@ export default function App() {
           </div>
 
           <Canvas />
+
+          {/* Version / branding footer */}
+          <div
+            className="absolute bottom-2 left-3 text-xs font-mono pointer-events-none select-none"
+            style={{ color: 'rgba(100,100,100,0.55)', zIndex: 10 }}
+          >
+            v{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.0'} ©fairlyOdd L.L.C. {new Date().getFullYear()}
+          </div>
         </div>
       </div>
 

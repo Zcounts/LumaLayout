@@ -69,7 +69,7 @@ function GridLayer({ width, height, scale, offsetX, offsetY, gridSize }) {
 // ---- Blueprint Shape ----
 // id is set on the Group so the Transformer can find it by id.
 // The Transformer renders the selection border — no manual selection rect needed.
-function BlueprintShapeNode({ shape, isSelected, onSelect, isSelectMode, onDragEnd }) {
+function BlueprintShapeNode({ shape, isSelected, onSelect, isSelectMode, onDragEnd, onDblClick }) {
   const strokeColor = isSelected ? '#2563eb' : shape.stroke
   const strokeWidth = isSelected ? Math.max(shape.strokeWidth, 2) : shape.strokeWidth
   const props = { fill: shape.fill, stroke: strokeColor, strokeWidth, listening: isSelectMode }
@@ -82,11 +82,25 @@ function BlueprintShapeNode({ shape, isSelected, onSelect, isSelectMode, onDragE
       onMouseDown={isSelectMode ? (e) => { e.cancelBubble = true; onSelect(shape.id, e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey) } : undefined}
       onDragStart={isSelectMode ? (e) => { e.cancelBubble = true } : undefined}
       onDragEnd={isSelectMode ? (e) => { e.cancelBubble = true; onDragEnd(shape.id, e.target.x(), e.target.y()) } : undefined}
+      onDblClick={isSelectMode && onDblClick ? (e) => { e.evt.preventDefault(); e.cancelBubble = true; onDblClick(shape.id, e.evt.clientX, e.evt.clientY) } : undefined}
     >
       {shape.shapeType === 'rect' && <Rect width={shape.width} height={shape.height} offsetX={shape.width / 2} offsetY={shape.height / 2} {...props} />}
       {shape.shapeType === 'circle' && <Circle radius={Math.min(shape.width, shape.height) / 2} {...props} />}
       {shape.shapeType === 'triangle' && <RegularPolygon sides={3} radius={Math.min(shape.width, shape.height) / 2} {...props} />}
-      {shape.label && <Text text={shape.label} fontSize={12} fill="#333" y={shape.height / 2 + 4} offsetX={shape.width / 2} align="center" width={shape.width} listening={false} />}
+      {shape.label && (
+        <Text
+          text={shape.label}
+          fontSize={12}
+          fill="#333"
+          align="center"
+          verticalAlign="middle"
+          width={shape.width}
+          height={shape.height}
+          offsetX={shape.width / 2}
+          offsetY={shape.height / 2}
+          listening={false}
+        />
+      )}
     </Group>
   )
 }
@@ -168,6 +182,10 @@ function LightingElementNode({ element, onSelect, onDragStart, onDragMove, onDra
         ].filter(Boolean)
         if (lines.length === 0) return null
         const textW = Math.max(element.width, 80)
+        // Counter-rotate and counter-scale so notes are always upright and fixed size
+        // regardless of the icon's rotation or scale.
+        const sx = element.scaleX || 1
+        const sy = element.scaleY || 1
         return (
           <Text
             text={lines.join('\n')}
@@ -180,6 +198,9 @@ function LightingElementNode({ element, onSelect, onDragStart, onDragMove, onDra
             fontFamily="'Segoe UI', sans-serif"
             lineHeight={1.35}
             listening={false}
+            rotation={-(element.rotation || 0)}
+            scaleX={1 / sx}
+            scaleY={1 / sy}
           />
         )
       })()}
@@ -243,11 +264,15 @@ export default function Canvas() {
   const [stageSize, setStageSize] = useState({ width: 800, height: 600 })
   const [isSpaceDown, setIsSpaceDown] = useState(false)
   const [isPanning, setIsPanning] = useState(false)
+  const [shiftDown, setShiftDown] = useState(false)
 
   // Blueprint drawing
   const [previewPoint, setPreviewPoint] = useState(null)
   const [shapeStart, setShapeStart] = useState(null)
   const [shapePreview, setShapePreview] = useState(null)
+
+  // Blueprint inline label editor: { shapeId, label }
+  const [shapeInlineEdit, setShapeInlineEdit] = useState(null)
 
   // Drag selection (screen coords)
   const [dragSel, setDragSel] = useState(null)
@@ -308,6 +333,7 @@ export default function Canvas() {
   // Keyboard shortcuts
   useEffect(() => {
     const onKeyDown = (e) => {
+      if (e.key === 'Shift' && !e.repeat) { setShiftDown(true) }
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
       if (e.key === ' ' && !e.repeat) { setIsSpaceDown(true); e.preventDefault(); return }
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z') { e.preventDefault(); undo(); return }
@@ -319,7 +345,7 @@ export default function Canvas() {
         else if (mode === 'blueprint' && selectedShapeIds.length > 0) { e.preventDefault(); deleteSelectedShapes() }
         return
       }
-      if (e.key === 'Escape') { clearSelection(); clearShapeSelection(); hideContextMenu(); setBlueprintState() }
+      if (e.key === 'Escape') { clearSelection(); clearShapeSelection(); hideContextMenu(); setBlueprintState(); setShapeInlineEdit(null) }
       // Blueprint mode tool shortcuts
       if (mode === 'blueprint' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         if (e.key === 'v' || e.key === 'V') { setBlueprintTool('select'); return }
@@ -329,7 +355,10 @@ export default function Canvas() {
         if (e.key === 't' || e.key === 'T') { setBlueprintTool('triangle'); return }
       }
     }
-    const onKeyUp = (e) => { if (e.key === ' ') setIsSpaceDown(false) }
+    const onKeyUp = (e) => {
+      if (e.key === ' ') setIsSpaceDown(false)
+      if (e.key === 'Shift') setShiftDown(false)
+    }
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)
     return () => { window.removeEventListener('keydown', onKeyDown); window.removeEventListener('keyup', onKeyUp) }
@@ -509,6 +538,21 @@ export default function Canvas() {
     if (!el) return
     showLabelEditor(id, cx, cy, el)
   }, [getCurrentScene, showLabelEditor])
+
+  // ---- Double-click to edit blueprint shape label ----
+  const handleShapeDblClick = useCallback((id) => {
+    const scene = getCurrentScene()
+    const shape = scene?.shapes.find(s => s.id === id)
+    if (!shape) return
+    setShapeInlineEdit({ shapeId: id, label: shape.label || '' })
+  }, [getCurrentScene])
+
+  const commitShapeLabel = useCallback(() => {
+    if (!shapeInlineEdit) return
+    pushHistorySnapshot()
+    updateShape(shapeInlineEdit.shapeId, { label: shapeInlineEdit.label.trim() })
+    setShapeInlineEdit(null)
+  }, [shapeInlineEdit, pushHistorySnapshot, updateShape])
 
   // ---- Wheel zoom ----
   const handleWheel = useCallback((e) => {
@@ -701,6 +745,7 @@ export default function Canvas() {
               onSelect={(id, multi) => selectShape(id, multi)}
               isSelectMode={isSelectMode}
               onDragEnd={handleShapeDragEnd}
+              onDblClick={handleShapeDblClick}
             />
           ))}
           {/* Shape draw preview */}
@@ -768,12 +813,17 @@ export default function Canvas() {
             )
           ))}
 
-          {/* Transformer for resize/rotate/move in Lighting Mode */}
+          {/* Transformer for resize/rotate/move in Lighting Mode.
+              Default: proportional scaling (corner anchors only).
+              Hold Shift: free/unconstrained scaling (all anchors). */}
           {mode === 'lighting' && (
             <Transformer
               ref={transformerRef}
               rotateEnabled
-              enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right']}
+              keepRatio={!shiftDown}
+              enabledAnchors={shiftDown
+                ? ['top-left', 'top-center', 'top-right', 'middle-left', 'middle-right', 'bottom-left', 'bottom-center', 'bottom-right']
+                : ['top-left', 'top-right', 'bottom-left', 'bottom-right']}
               boundBoxFunc={(oldBox, newBox) => (Math.abs(newBox.width) < 15 || Math.abs(newBox.height) < 15 ? oldBox : newBox)}
               onTransformEnd={handleTransformEnd}
               anchorFill="#ffffff"
@@ -794,6 +844,53 @@ export default function Canvas() {
         <div className="pointer-events-none absolute border-2 border-blue-500 bg-blue-500/10 rounded-sm"
           style={{ left: selOverlay.left, top: selOverlay.top, width: selOverlay.width, height: selOverlay.height }} />
       )}
+
+      {/* Blueprint shape inline label editor */}
+      {shapeInlineEdit && (() => {
+        const scene = getCurrentScene()
+        const shape = scene?.shapes.find(s => s.id === shapeInlineEdit.shapeId)
+        if (!shape) return null
+        const containerRect = containerRef.current?.getBoundingClientRect()
+        const cx = (containerRect?.left || 0) + stageX + shape.x * stageScale
+        const cy = (containerRect?.top || 0) + stageY + shape.y * stageScale
+        const inputW = Math.max(shape.width * stageScale, 120)
+        return (
+          <div
+            style={{
+              position: 'fixed',
+              left: cx - inputW / 2,
+              top: cy - 14,
+              width: inputW,
+              zIndex: 200,
+            }}
+          >
+            <input
+              autoFocus
+              value={shapeInlineEdit.label}
+              onChange={e => setShapeInlineEdit(prev => ({ ...prev, label: e.target.value }))}
+              onKeyDown={e => {
+                if (e.key === 'Enter') { commitShapeLabel() }
+                if (e.key === 'Escape') { setShapeInlineEdit(null) }
+                e.stopPropagation()
+              }}
+              onBlur={commitShapeLabel}
+              style={{
+                width: '100%',
+                textAlign: 'center',
+                background: 'rgba(255,255,255,0.97)',
+                border: '1.5px solid #2563eb',
+                borderRadius: 4,
+                padding: '2px 6px',
+                fontSize: 12,
+                outline: 'none',
+                boxShadow: '0 2px 8px rgba(37,99,235,0.2)',
+              }}
+              maxLength={60}
+              placeholder="Label…"
+            />
+          </div>
+        )
+      })()}
 
       {/* Bottom status bar */}
       <div className="absolute bottom-2 right-3 bg-white/90 border border-gray-200 rounded px-2 py-0.5 text-xs text-gray-500 font-mono shadow-sm">

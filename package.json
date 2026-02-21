@@ -12,7 +12,7 @@
     "electron": "electron ."
   },
   "keywords": [],
-  "author": "LumaLayout",
+  "author": "fairlyOdd L.L.C",
   "license": "MIT",
   "dependencies": {
     "jspdf": "^4.2.0",
@@ -54,7 +54,8 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "publisherName": "fairlyOdd L.L.C"
     },
     "files": [
       "dist/**/*",
