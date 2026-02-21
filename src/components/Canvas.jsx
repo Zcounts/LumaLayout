@@ -186,6 +186,22 @@ function LightingElementNode({ element, onSelect, onDragStart, onDragMove, onDra
         // regardless of the icon's rotation or scale.
         const sx = element.scaleX || 1
         const sy = element.scaleY || 1
+        // Compute a scale-aware vertical gap between the icon's visual bottom and
+        // the text block.  We want the gap to grow with the icon's actual rendered
+        // size so the text never sits on top of the icon regardless of scale.
+        //
+        // All arithmetic happens in the group's LOCAL coordinate space.  The group
+        // has scaleY=sy applied, so a local distance d becomes d*sy in world space.
+        //
+        // Desired world-space gap: at least 8 world-units, or 30 % of the icon's
+        // visual half-height (whichever is larger).
+        //   visualHalfH_world = (element.height / 2) * sy
+        //   worldGap           = max(8, visualHalfH_world * 0.30)
+        //   localGapY          = worldGap / sy   ← undo the group scale so the
+        //                                            rendered gap stays at worldGap
+        const visualHalfH = (element.height / 2) * sy
+        const worldGap    = Math.max(8, visualHalfH * 0.30)
+        const textY       = element.height / 2 + worldGap / sy
         return (
           <Text
             text={lines.join('\n')}
@@ -194,7 +210,7 @@ function LightingElementNode({ element, onSelect, onDragStart, onDragMove, onDra
             align="center"
             width={textW}
             offsetX={textW / 2}
-            y={element.height / 2 + 4}
+            y={textY}
             fontFamily="'Segoe UI', sans-serif"
             lineHeight={1.35}
             listening={false}
