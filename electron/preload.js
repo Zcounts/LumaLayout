@@ -28,4 +28,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onMenuDelete: (cb) => on('menu-delete', cb),
   onMenuExportAllPDF: (cb) => on('menu-export-all-pdf', cb),
   onMenuExportAllPNG: (cb) => on('menu-export-all-png', cb),
+
+  // Close-window lifecycle
+  onAppBeforeClose: (cb) => on('app-before-close', cb),
+  forceCloseApp: () => ipcRenderer.invoke('force-close-app'),
 })

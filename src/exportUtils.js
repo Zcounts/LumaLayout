@@ -51,6 +51,22 @@ function computeViewport(bounds, canvasW, canvasH, padding = 60) {
   }
 }
 
+// Fetch an SVG icon and return it as a data URL so it renders reliably in the
+// off-screen canvas (avoids absolute-path issues under the file:// protocol).
+async function fetchIconAsDataURL(iconPath) {
+  if (iconPath.startsWith('data:')) return iconPath
+  try {
+    const url = `./icons/${encodeURIComponent(iconPath)}`
+    const resp = await fetch(url)
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+    const text = await resp.text()
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(text)}`
+  } catch (e) {
+    console.warn('[export] Failed to load icon:', iconPath, e)
+    return null
+  }
+}
+
 function arrayBufferToBase64(buffer) {
   const bytes = new Uint8Array(buffer)
   let binary = ''
@@ -138,9 +154,12 @@ async function renderSceneToDataURL(scene, canvasW = EXPORT_W, canvasH = EXPORT_
       })
       const hw = el.width / 2, hh = el.height / 2
 
-      const p = new Promise((res) => {
+      const p = fetchIconAsDataURL(el.iconPath).then((dataURL) => new Promise((res) => {
+        if (!dataURL) {
+          g.add(new Konva.Rect({ width: el.width, height: el.height, offsetX: hw, offsetY: hh, fill: 'rgba(100,120,200,0.25)', stroke: 'rgba(100,120,200,0.5)', strokeWidth: 1, listening: false }))
+          return res()
+        }
         const img = new Image()
-        img.crossOrigin = 'anonymous'
         img.onload = () => {
           g.add(new Konva.Image({ image: img, width: el.width, height: el.height, offsetX: hw, offsetY: hh, listening: false }))
           res()
@@ -149,16 +168,17 @@ async function renderSceneToDataURL(scene, canvasW = EXPORT_W, canvasH = EXPORT_
           g.add(new Konva.Rect({ width: el.width, height: el.height, offsetX: hw, offsetY: hh, fill: 'rgba(100,120,200,0.25)', stroke: 'rgba(100,120,200,0.5)', strokeWidth: 1, listening: false }))
           res()
         }
-        img.src = el.iconPath.startsWith('data:') ? el.iconPath : `/icons/${encodeURIComponent(el.iconPath)}`
-      })
+        img.src = dataURL
+      }))
       imgPromises.push(p)
 
-      if (el.label) {
+      const infoLines = [el.label, el.accessories, el.colorTemperature, el.notes].filter(Boolean)
+      if (infoLines.length > 0) {
+        const textW = Math.max(el.width, 80)
         g.add(new Konva.Text({
-          text: el.label, fontSize: 11, fill: '#1e293b',
-          align: 'center', width: Math.max(el.width, 80),
-          offsetX: Math.max(el.width, 80) / 2,
-          y: el.height / 2 + 4, fontFamily: 'sans-serif', listening: false,
+          text: infoLines.join('\n'), fontSize: 11, fill: '#1e293b',
+          align: 'center', width: textW, offsetX: textW / 2,
+          y: el.height / 2 + 4, fontFamily: 'sans-serif', lineHeight: 1.35, listening: false,
         }))
       }
       lightLayer.add(g)

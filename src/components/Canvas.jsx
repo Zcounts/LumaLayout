@@ -159,19 +159,30 @@ function LightingElementNode({ element, onSelect, onDragStart, onDragMove, onDra
       onDblClick={(e) => { e.evt.preventDefault(); e.cancelBubble = true; onDoubleClick(element.id, e.evt.clientX, e.evt.clientY) }}
     >
       <ElementImage element={element} />
-      {element.label ? (
-        <Text
-          text={element.label}
-          fontSize={11}
-          fill="#1e293b"
-          align="center"
-          width={Math.max(element.width, 80)}
-          offsetX={Math.max(element.width, 80) / 2}
-          y={element.height / 2 + 4}
-          fontFamily="'Segoe UI', sans-serif"
-          listening={false}
-        />
-      ) : null}
+      {(() => {
+        const lines = [
+          element.label,
+          element.accessories,
+          element.colorTemperature,
+          element.notes,
+        ].filter(Boolean)
+        if (lines.length === 0) return null
+        const textW = Math.max(element.width, 80)
+        return (
+          <Text
+            text={lines.join('\n')}
+            fontSize={11}
+            fill="#1e293b"
+            align="center"
+            width={textW}
+            offsetX={textW / 2}
+            y={element.height / 2 + 4}
+            fontFamily="'Segoe UI', sans-serif"
+            lineHeight={1.35}
+            listening={false}
+          />
+        )
+      })()}
     </Group>
   )
 }
@@ -491,11 +502,12 @@ export default function Canvas() {
     showContextMenu(cx, cy, id)
   }, [selectedIds, selectElement, showContextMenu])
 
-  // ---- Double-click for label ----
+  // ---- Double-click to edit icon info ----
   const handleElementDoubleClick = useCallback((id, cx, cy) => {
     const scene = getCurrentScene()
     const el = scene?.elements.find(e => e.id === id)
-    showLabelEditor(id, cx, cy, el?.label || '')
+    if (!el) return
+    showLabelEditor(id, cx, cy, el)
   }, [getCurrentScene, showLabelEditor])
 
   // ---- Wheel zoom ----
@@ -549,8 +561,9 @@ export default function Canvas() {
         setShapeStart({ x: sx, y: sy })
         return
       }
-      // blueprintTool === 'select': clicking empty canvas clears selection
-      if (blueprintTool === 'select') {
+      // blueprintTool === 'select': only clear selection when clicking the empty canvas background,
+      // not when clicking a shape or a transformer anchor (which would abort the drag).
+      if (blueprintTool === 'select' && e.target === stageRef.current) {
         clearShapeSelection()
       }
       return
