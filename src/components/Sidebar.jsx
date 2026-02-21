@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { useStore } from '../store/useStore'
 
 // Icon catalog — maps to SVG files in /icons folder
@@ -221,8 +221,52 @@ export default function Sidebar() {
   const sidebarCollapsed = useStore(s => s.sidebarCollapsed)
   const mode = useStore(s => s.mode)
   const projectName = useStore(s => s.projectName)
+  const setProjectName = useStore(s => s.setProjectName)
   const currentFilePath = useStore(s => s.currentFilePath)
   const [openCategories, setOpenCategories] = useState({ 'Light Sources': true })
+
+  // Editable project name
+  const [editingName, setEditingName] = useState(false)
+  const [nameValue, setNameValue] = useState(projectName)
+  useEffect(() => { setNameValue(projectName) }, [projectName])
+
+  const handleNameDoubleClick = () => {
+    setNameValue(projectName)
+    setEditingName(true)
+  }
+  const commitNameEdit = () => {
+    const trimmed = nameValue.trim()
+    if (trimmed) setProjectName(trimmed)
+    setEditingName(false)
+  }
+
+  // Custom icons — persisted in localStorage
+  const [customIcons, setCustomIcons] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('lumalayout-custom-icons') || '[]') } catch { return [] }
+  })
+  const fileInputRef = useRef(null)
+
+  const handleUploadIcon = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const dataURL = ev.target.result
+      const iconName = file.name.replace(/\.svg$/i, '').replace(/[-_]/g, ' ')
+      const newIcon = { name: iconName, file: dataURL, custom: true }
+      const updated = [...customIcons, newIcon]
+      setCustomIcons(updated)
+      try { localStorage.setItem('lumalayout-custom-icons', JSON.stringify(updated)) } catch {}
+    }
+    reader.readAsDataURL(file)
+    e.target.value = ''
+  }
+
+  const removeCustomIcon = (idx) => {
+    const updated = customIcons.filter((_, i) => i !== idx)
+    setCustomIcons(updated)
+    try { localStorage.setItem('lumalayout-custom-icons', JSON.stringify(updated)) } catch {}
+  }
 
   const toggleCategory = (name) => {
     setOpenCategories(prev => ({ ...prev, [name]: !prev[name] }))
@@ -236,19 +280,40 @@ export default function Sidebar() {
     e.dataTransfer.effectAllowed = 'copy'
     // Create a drag image
     const img = new Image()
-    img.src = `./icons/${encodeURIComponent(icon.file)}`
+    img.src = icon.file.startsWith('data:') ? icon.file : `./icons/${encodeURIComponent(icon.file)}`
     e.dataTransfer.setDragImage(img, 30, 30)
   }
 
   if (sidebarCollapsed) return null
 
+  // Build full category list including custom icons
+  const allCategories = [
+    ...ICON_CATEGORIES,
+    ...(customIcons.length > 0 ? [{ name: 'Custom', icons: customIcons, isCustom: true }] : []),
+  ]
+
   return (
     <div className="w-56 flex-shrink-0 bg-sidebar flex flex-col h-full border-r border-gray-200 dark:border-white/10">
-      {/* Project name */}
+      {/* Project name — double-click to rename */}
       <div className="px-3 py-2 border-b border-gray-200 dark:border-white/10">
-        <div className="text-xs font-semibold text-gray-800 dark:text-white/80 truncate" title={currentFilePath || 'Unsaved project'}>
-          {projectName}
-        </div>
+        {editingName ? (
+          <input
+            className="text-xs font-semibold bg-transparent border-b border-blue-400 dark:border-blue-300 outline-none w-full text-gray-900 dark:text-white"
+            value={nameValue}
+            onChange={e => setNameValue(e.target.value)}
+            onBlur={commitNameEdit}
+            onKeyDown={e => { if (e.key === 'Enter') commitNameEdit(); if (e.key === 'Escape') setEditingName(false) }}
+            autoFocus
+          />
+        ) : (
+          <div
+            className="text-xs font-semibold text-gray-800 dark:text-white/80 truncate cursor-pointer select-none"
+            title="Double-click to rename"
+            onDoubleClick={handleNameDoubleClick}
+          >
+            {projectName}
+          </div>
+        )}
         <div className="text-xs text-gray-400 dark:text-white/30 truncate mt-0.5">
           {currentFilePath ? currentFilePath.split(/[\\/]/).pop() : 'Unsaved'}
         </div>
@@ -263,10 +328,24 @@ export default function Sidebar() {
       {/* Icon library — only in lighting mode */}
       {mode === 'lighting' && (
         <div className="flex-1 overflow-y-auto sidebar-scroll">
-          <div className="px-3 py-2">
+          <div className="flex items-center justify-between px-3 py-2">
             <span className="text-xs font-semibold text-gray-500 dark:text-white/50 uppercase tracking-wider">Icon Library</span>
+            <button
+              className="text-xs text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-200 flex items-center gap-1"
+              onClick={() => fileInputRef.current?.click()}
+              title="Upload custom SVG icon"
+            >
+              + Upload
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".svg,image/svg+xml"
+              className="hidden"
+              onChange={handleUploadIcon}
+            />
           </div>
-          {ICON_CATEGORIES.map(cat => (
+          {allCategories.map(cat => (
             <div key={cat.name}>
               <button
                 className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
@@ -277,20 +356,27 @@ export default function Sidebar() {
               </button>
               {openCategories[cat.name] && (
                 <div className="grid grid-cols-3 gap-1 px-2 pb-2">
-                  {cat.icons.map(icon => (
+                  {cat.icons.map((icon, idx) => (
                     <div
-                      key={icon.file}
-                      className="icon-card"
+                      key={cat.isCustom ? idx : icon.file}
+                      className="icon-card relative group"
                       draggable
                       onDragStart={e => handleDragStart(e, icon)}
                       title={`${icon.name} — drag to canvas`}
                     >
                       <img
-                        src={`./icons/${encodeURIComponent(icon.file)}`}
+                        src={icon.file.startsWith('data:') ? icon.file : `./icons/${encodeURIComponent(icon.file)}`}
                         alt={icon.name}
                         onError={e => { e.target.src = './icons/camera_blue.svg' }}
                       />
                       <span>{icon.name}</span>
+                      {cat.isCustom && (
+                        <button
+                          className="absolute top-0.5 right-0.5 w-4 h-4 flex items-center justify-center rounded-full bg-red-500 text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity leading-none"
+                          onClick={e => { e.stopPropagation(); removeCustomIcon(idx) }}
+                          title="Remove custom icon"
+                        >×</button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -307,10 +393,11 @@ export default function Sidebar() {
             <p className="font-semibold text-gray-500 dark:text-white/50 mb-2">Blueprint Mode</p>
             <p className="mb-1">Use the toolbar tools to:</p>
             <ul className="space-y-1 ml-2">
-              <li>⬡ Draw room outline</li>
-              <li>▭ Place rectangle</li>
-              <li>○ Place circle</li>
-              <li>△ Place triangle</li>
+              <li><span className="font-mono bg-gray-100 dark:bg-white/10 px-1 rounded text-gray-500 dark:text-white/40">V</span> Selection tool</li>
+              <li><span className="font-mono bg-gray-100 dark:bg-white/10 px-1 rounded text-gray-500 dark:text-white/40">P</span> Draw room outline</li>
+              <li><span className="font-mono bg-gray-100 dark:bg-white/10 px-1 rounded text-gray-500 dark:text-white/40">R</span> Place rectangle</li>
+              <li><span className="font-mono bg-gray-100 dark:bg-white/10 px-1 rounded text-gray-500 dark:text-white/40">C</span> Place circle</li>
+              <li><span className="font-mono bg-gray-100 dark:bg-white/10 px-1 rounded text-gray-500 dark:text-white/40">T</span> Place triangle</li>
             </ul>
             <p className="mt-3">Elements placed here are locked in Lighting Mode.</p>
           </div>

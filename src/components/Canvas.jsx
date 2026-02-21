@@ -7,6 +7,48 @@ import useImage from 'use-image'
 import { useStore } from '../store/useStore'
 import { sharedStageRef } from '../canvasRef'
 
+// ---- SVG dimension helpers ----
+async function getSVGNaturalSize(src) {
+  try {
+    let text
+    if (src.startsWith('data:')) {
+      if (src.includes(';base64,')) {
+        text = atob(src.split(';base64,')[1])
+      } else {
+        text = decodeURIComponent(src.split(',')[1])
+      }
+    } else {
+      const resp = await fetch(src)
+      text = await resp.text()
+    }
+    const parser = new DOMParser()
+    const svg = parser.parseFromString(text, 'image/svg+xml')
+    const svgEl = svg.querySelector('svg')
+    if (!svgEl) return null
+    const vb = svgEl.getAttribute('viewBox')
+    if (vb) {
+      const parts = vb.trim().split(/[\s,]+/).map(Number)
+      const vbW = parts[2], vbH = parts[3]
+      if (vbW > 0 && vbH > 0) return { w: vbW, h: vbH }
+    }
+    const w = parseFloat(svgEl.getAttribute('width'))
+    const h = parseFloat(svgEl.getAttribute('height'))
+    if (w > 0 && h > 0) return { w, h }
+  } catch {}
+  return null
+}
+
+function calcIconSize(natural, targetSize = 60) {
+  if (!natural) return { width: targetSize, height: targetSize }
+  const { w, h } = natural
+  const ratio = w / h
+  if (ratio >= 1) {
+    return { width: targetSize, height: Math.round(targetSize / ratio) }
+  } else {
+    return { height: targetSize, width: Math.round(targetSize * ratio) }
+  }
+}
+
 // ---- Grid Layer ----
 function GridLayer({ width, height, scale, offsetX, offsetY, gridSize }) {
   const lines = []
@@ -25,7 +67,7 @@ function GridLayer({ width, height, scale, offsetX, offsetY, gridSize }) {
 }
 
 // ---- Blueprint Shape ----
-function BlueprintShapeNode({ shape, isSelected, onSelect, isSelectMode }) {
+function BlueprintShapeNode({ shape, isSelected, onSelect, isSelectMode, onDragEnd }) {
   const strokeColor = isSelected ? '#2563eb' : shape.stroke
   const strokeWidth = isSelected ? Math.max(shape.strokeWidth, 2) : shape.strokeWidth
   const props = { fill: shape.fill, stroke: strokeColor, strokeWidth, listening: isSelectMode }
@@ -33,7 +75,10 @@ function BlueprintShapeNode({ shape, isSelected, onSelect, isSelectMode }) {
     <Group
       x={shape.x} y={shape.y} rotation={shape.rotation}
       listening={isSelectMode}
+      draggable={isSelectMode}
       onMouseDown={isSelectMode ? (e) => { e.cancelBubble = true; onSelect(shape.id) } : undefined}
+      onDragStart={isSelectMode ? (e) => { e.cancelBubble = true } : undefined}
+      onDragEnd={isSelectMode ? (e) => { e.cancelBubble = true; onDragEnd(shape.id, e.target.x(), e.target.y()) } : undefined}
     >
       {shape.shapeType === 'rect' && <Rect width={shape.width} height={shape.height} offsetX={shape.width / 2} offsetY={shape.height / 2} {...props} />}
       {shape.shapeType === 'circle' && <Circle radius={Math.min(shape.width, shape.height) / 2} {...props} />}
@@ -68,7 +113,10 @@ function RoomLayer({ scene, scale }) {
 
 // ---- Element image (just the visual, no positioning) ----
 function ElementImage({ element }) {
-  const [image] = useImage(`./icons/${encodeURIComponent(element.iconPath)}`)
+  const src = element.iconPath.startsWith('data:')
+    ? element.iconPath
+    : `./icons/${encodeURIComponent(element.iconPath)}`
+  const [image] = useImage(src)
   const hw = element.width / 2
   const hh = element.height / 2
   if (image) {
@@ -148,9 +196,11 @@ export default function Canvas() {
   const hideContextMenu = useStore(s => s.hideContextMenu)
   const showLabelEditor = useStore(s => s.showLabelEditor)
   const blueprintTool = useStore(s => s.blueprintTool)
+  const setBlueprintTool = useStore(s => s.setBlueprintTool)
   const selectedShapeIds = useStore(s => s.selectedShapeIds)
   const selectShape = useStore(s => s.selectShape)
   const clearShapeSelection = useStore(s => s.clearShapeSelection)
+  const updateShape = useStore(s => s.updateShape)
   const addRoomPoint = useStore(s => s.addRoomPoint)
   const closeRoom = useStore(s => s.closeRoom)
   const addShape = useStore(s => s.addShape)
@@ -214,7 +264,7 @@ export default function Canvas() {
   // Keyboard shortcuts
   useEffect(() => {
     const onKeyDown = (e) => {
-      if (e.target.tagName === 'INPUT') return
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
       if (e.key === ' ' && !e.repeat) { setIsSpaceDown(true); e.preventDefault(); return }
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z') { e.preventDefault(); undo(); return }
       if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) { e.preventDefault(); redo(); return }
@@ -222,12 +272,20 @@ export default function Canvas() {
       if ((e.ctrlKey || e.metaKey) && e.key === 'g') { e.preventDefault(); groupSelectedElements(); return }
       if (e.key === 'Delete' || e.key === 'Backspace') { if (selectedIds.length > 0) { e.preventDefault(); deleteSelectedElements() } return }
       if (e.key === 'Escape') { clearSelection(); clearShapeSelection(); hideContextMenu(); setBlueprintState() }
+      // Blueprint mode tool shortcuts
+      if (mode === 'blueprint' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (e.key === 'v' || e.key === 'V') { setBlueprintTool('select'); return }
+        if (e.key === 'p' || e.key === 'P') { setBlueprintTool('room'); return }
+        if (e.key === 'r' || e.key === 'R') { setBlueprintTool('rect'); return }
+        if (e.key === 'c' || e.key === 'C') { setBlueprintTool('circle'); return }
+        if (e.key === 't' || e.key === 'T') { setBlueprintTool('triangle'); return }
+      }
     }
     const onKeyUp = (e) => { if (e.key === ' ') setIsSpaceDown(false) }
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)
     return () => { window.removeEventListener('keydown', onKeyDown); window.removeEventListener('keyup', onKeyUp) }
-  }, [selectedIds, undo, redo, duplicateSelectedElements, groupSelectedElements, deleteSelectedElements, clearSelection, clearShapeSelection, hideContextMenu])
+  }, [mode, selectedIds, undo, redo, duplicateSelectedElements, groupSelectedElements, deleteSelectedElements, clearSelection, clearShapeSelection, hideContextMenu, setBlueprintTool])
 
   const setBlueprintState = () => { setShapeStart(null); setShapePreview(null); setPreviewPoint(null) }
 
@@ -317,6 +375,12 @@ export default function Canvas() {
     dragStartPositions.current = {}
   }, [snapCoord, snapToGrid, gridSize, updateElementWithHistory, updateMultipleElementsWithHistory])
 
+  // ---- Blueprint shape drag end ----
+  const handleShapeDragEnd = useCallback((id, x, y) => {
+    pushHistorySnapshot()
+    updateShape(id, { x: snapCoord(x), y: snapCoord(y) })
+  }, [pushHistorySnapshot, updateShape, snapCoord])
+
   // ---- Transform end (scale/rotate via Transformer) ----
   const handleTransformEnd = useCallback(() => {
     pushHistorySnapshot()
@@ -360,7 +424,7 @@ export default function Canvas() {
   }, [stageX, stageY, stageScale, setViewport])
 
   // ---- Drop from sidebar ----
-  const handleDrop = useCallback((e) => {
+  const handleDrop = useCallback(async (e) => {
     e.preventDefault()
     if (mode !== 'lighting') return
     const data = e.dataTransfer.getData('application/json')
@@ -369,7 +433,11 @@ export default function Canvas() {
     const rect = containerRef.current.getBoundingClientRect()
     const cx = (e.clientX - rect.left - stageX) / stageScale
     const cy = (e.clientY - rect.top - stageY) / stageScale
-    addElement({ iconPath: iconFile, iconName, x: snapCoord(cx), y: snapCoord(cy), width: 60, height: 60, scaleX: 1, scaleY: 1 })
+    // Parse SVG to preserve natural aspect ratio
+    const src = iconFile.startsWith('data:') ? iconFile : `./icons/${encodeURIComponent(iconFile)}`
+    const natural = await getSVGNaturalSize(src)
+    const { width, height } = calcIconSize(natural, 60)
+    addElement({ iconPath: iconFile, iconName, x: snapCoord(cx), y: snapCoord(cy), width, height, scaleX: 1, scaleY: 1 })
   }, [mode, stageX, stageY, stageScale, addElement, snapCoord])
 
   // ---- Stage mouse events ----
@@ -521,6 +589,7 @@ export default function Canvas() {
               isSelected={selectedShapeIds.includes(s.id)}
               onSelect={(id) => selectShape(id, false)}
               isSelectMode={blueprintTool === 'select'}
+              onDragEnd={handleShapeDragEnd}
             />
           ))}
           {/* Shape draw preview */}

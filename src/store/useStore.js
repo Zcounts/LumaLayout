@@ -175,7 +175,7 @@ export const useStore = create((set, get) => ({
   },
 
   // ---- Mode ----
-  setMode: (mode) => set({ mode, selectedIds: [] }),
+  setMode: (mode) => set({ mode, selectedIds: [], selectedShapeIds: [] }),
   toggleDarkMode: () => set(s => ({ darkMode: !s.darkMode })),
   toggleSnapToGrid: () => set(s => ({ snapToGrid: !s.snapToGrid })),
   toggleShowGrid: () => set(s => ({ showGrid: !s.showGrid })),
