@@ -160,6 +160,13 @@ function createWindow() {
   }
 
   buildMenu(win, loadRecentFiles())
+
+  // Intercept close so the renderer can prompt about unsaved changes.
+  // The renderer calls 'force-close-app' when the user confirms.
+  win.on('close', (event) => {
+    event.preventDefault()
+    win.webContents.send('app-before-close')
+  })
 }
 
 // ---- IPC handlers ----
@@ -268,6 +275,13 @@ ipcMain.handle('save-export-all-png', async (event, { files }) => {
   } catch (err) {
     return { success: false, error: err.message }
   }
+})
+
+// Renderer calls this after the user confirms they want to close
+// (or when there are no unsaved changes). destroy() bypasses the 'close' handler.
+ipcMain.handle('force-close-app', () => {
+  const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
+  if (win) win.destroy()
 })
 
 app.whenReady().then(createWindow)

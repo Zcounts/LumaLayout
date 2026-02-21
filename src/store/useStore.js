@@ -23,6 +23,9 @@ export const makeElement = (overrides = {}) => ({
   scaleX: 1,
   scaleY: 1,
   label: '',
+  accessories: '',
+  colorTemperature: '',
+  notes: '',
   zIndex: 0,
   groupId: null,
   ...overrides,
@@ -99,9 +102,12 @@ const initialState = {
   history: [],
   historyIndex: -1,
 
+  // Dirty flag — true whenever unsaved modifications exist
+  isDirty: false,
+
   // UI state
   contextMenu: null, // { x, y, targetId }
-  labelEditor: null, // { id, x, y, value }
+  labelEditor: null, // { id, x, y, label, accessories, colorTemperature, notes }
   dragSelecting: false,
   selectionRect: null, // { x1, y1, x2, y2 }
 }
@@ -141,6 +147,7 @@ const pushHistory = (state, snap) => {
   return {
     history: newHistory,
     historyIndex: newHistory.length - 1,
+    isDirty: true,
   }
 }
 
@@ -171,6 +178,7 @@ export const useStore = create((set, get) => ({
       history: [],
       historyIndex: -1,
       mode: 'lighting',
+      isDirty: false,
     })
   },
 
@@ -365,12 +373,12 @@ export const useStore = create((set, get) => ({
     }))
   },
 
-  setLabel: (id, label) => {
+  setIconInfo: (id, info) => {
     const state = get()
     const snap = snapshot(state)
     set(s => ({
       ...updateCurrentScene(s, sc => ({
-        elements: sc.elements.map(el => el.id === id ? { ...el, label } : el),
+        elements: sc.elements.map(el => el.id === id ? { ...el, ...info } : el),
       })),
       ...pushHistory(s, snap),
     }))
@@ -577,9 +585,18 @@ export const useStore = create((set, get) => ({
   showContextMenu: (x, y, targetId) => set({ contextMenu: { x, y, targetId } }),
   hideContextMenu: () => set({ contextMenu: null }),
 
-  // ---- Label editor ----
-  showLabelEditor: (id, x, y, value) => set({ labelEditor: { id, x, y, value } }),
+  // ---- Label / info editor ----
+  showLabelEditor: (id, x, y, el) => set({
+    labelEditor: {
+      id, x, y,
+      label: el?.label || '',
+      accessories: el?.accessories || '',
+      colorTemperature: el?.colorTemperature || '',
+      notes: el?.notes || '',
+    },
+  }),
   hideLabelEditor: () => set({ labelEditor: null }),
+  markSaved: () => set({ isDirty: false }),
 
   // ---- Save / Load ----
   exportData: () => {
@@ -603,6 +620,7 @@ export const useStore = create((set, get) => ({
         selectedIds: [],
         history: [],
         historyIndex: -1,
+        isDirty: false,
       })
     } catch (e) {
       console.error('Failed to import data:', e)

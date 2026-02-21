@@ -22,8 +22,11 @@ export default function App() {
   const newProject = useStore(s => s.newProject)
   const getCurrentScene = useStore(s => s.getCurrentScene)
   const scenes = useStore(s => s.scenes)
+  const isDirty = useStore(s => s.isDirty)
+  const markSaved = useStore(s => s.markSaved)
 
   const [showNewProjectDialog, setShowNewProjectDialog] = useState(false)
+  const [showCloseDialog, setShowCloseDialog] = useState(false)
 
   // Stable refs so IPC callbacks always use latest values
   const exportDataRef = useRef(exportData)
@@ -34,6 +37,8 @@ export default function App() {
   const addRecentProjectRef = useRef(addRecentProject)
   const getCurrentSceneRef = useRef(getCurrentScene)
   const scenesRef = useRef(scenes)
+  const isDirtyRef = useRef(isDirty)
+  const markSavedRef = useRef(markSaved)
 
   useEffect(() => { exportDataRef.current = exportData }, [exportData])
   useEffect(() => { importDataRef.current = importData }, [importData])
@@ -43,6 +48,8 @@ export default function App() {
   useEffect(() => { addRecentProjectRef.current = addRecentProject }, [addRecentProject])
   useEffect(() => { getCurrentSceneRef.current = getCurrentScene }, [getCurrentScene])
   useEffect(() => { scenesRef.current = scenes }, [scenes])
+  useEffect(() => { isDirtyRef.current = isDirty }, [isDirty])
+  useEffect(() => { markSavedRef.current = markSaved }, [markSaved])
 
   // Update window title
   useEffect(() => {
@@ -77,6 +84,7 @@ export default function App() {
       const result = await window.electronAPI.saveFile({ filePath, data })
       if (result?.success && result.filePath) {
         setCurrentFilePathRef.current(result.filePath)
+        markSavedRef.current()
         const name = result.filePath.split(/[\\/]/).pop().replace(/\.lumalayout$/i, '')
         addRecentProjectRef.current(result.filePath, name)
       }
@@ -87,6 +95,7 @@ export default function App() {
       const result = await window.electronAPI.saveFile({ data })
       if (result?.success && result.filePath) {
         setCurrentFilePathRef.current(result.filePath)
+        markSavedRef.current()
         const name = result.filePath.split(/[\\/]/).pop().replace(/\.lumalayout$/i, '')
         addRecentProjectRef.current(result.filePath, name)
       }
@@ -139,9 +148,38 @@ export default function App() {
     }
   }, [undo, redo])
 
+  // Intercept window close — prompt when there are unsaved changes
+  useEffect(() => {
+    if (!window.electronAPI?.onAppBeforeClose) return
+    const remove = window.electronAPI.onAppBeforeClose(() => {
+      if (!isDirtyRef.current) {
+        window.electronAPI.forceCloseApp()
+      } else {
+        setShowCloseDialog(true)
+      }
+    })
+    return remove
+  }, [])
+
   const handleNewProjectConfirm = (name) => {
     newProject(name)
     setShowNewProjectDialog(false)
+  }
+
+  // Save then close (used by the close dialog)
+  const handleSaveAndClose = async () => {
+    const data = exportDataRef.current()
+    const filePath = currentFilePathRef.current
+    const result = await window.electronAPI.saveFile({ filePath, data })
+    if (result?.success && result.filePath) {
+      setCurrentFilePathRef.current(result.filePath)
+      markSavedRef.current()
+      const name = result.filePath.split(/[\\/]/).pop().replace(/\.lumalayout$/i, '')
+      addRecentProjectRef.current(result.filePath, name)
+      window.electronAPI.forceCloseApp()
+    }
+    // If the save dialog was cancelled, keep the app open
+    setShowCloseDialog(false)
   }
 
   return (
@@ -179,6 +217,39 @@ export default function App() {
           onConfirm={handleNewProjectConfirm}
           onCancel={() => setShowNewProjectDialog(false)}
         />
+      )}
+
+      {/* Unsaved-changes close dialog */}
+      {showCloseDialog && (
+        <div className="close-dialog-overlay">
+          <div className="close-dialog">
+            <h3>Unsaved Changes</h3>
+            <p>
+              <strong>{projectName}</strong> has unsaved changes.
+              Do you want to save before closing?
+            </p>
+            <div className="close-dialog-buttons">
+              <button
+                className="close-dialog-btn"
+                onClick={() => setShowCloseDialog(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="close-dialog-btn"
+                onClick={() => window.electronAPI.forceCloseApp()}
+              >
+                Don't Save
+              </button>
+              <button
+                className="close-dialog-btn primary"
+                onClick={handleSaveAndClose}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
