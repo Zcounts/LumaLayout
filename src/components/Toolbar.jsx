@@ -38,11 +38,11 @@ export default function Toolbar() {
   const canRedo = historyIndex < history.length - 1
 
   return (
-    <div className="flex items-center gap-2 px-3 py-2 bg-toolbar border-b border-white/10 select-none">
+    <div className="flex items-center gap-2 px-3 py-2 bg-toolbar border-b border-gray-200 dark:border-white/10 select-none">
       {/* App name */}
-      <span className="text-white font-bold text-sm mr-2 tracking-wide">LumaLayout</span>
+      <span className="text-gray-800 dark:text-white font-bold text-sm mr-2 tracking-wide">LumaLayout</span>
 
-      <div className="w-px h-5 bg-white/20 mx-1" />
+      <div className="w-px h-5 bg-gray-300 dark:bg-white/20 mx-1" />
 
       {/* Sidebar toggle */}
       <button
@@ -59,12 +59,12 @@ export default function Toolbar() {
       <div className="w-px h-5 bg-white/20 mx-1" />
 
       {/* Mode toggle */}
-      <div className="flex rounded-md overflow-hidden border border-white/20">
+      <div className="flex rounded-md overflow-hidden border border-gray-300 dark:border-white/20">
         <button
           className={`px-3 py-1 text-xs font-semibold transition-colors ${
             mode === 'blueprint'
               ? 'bg-blue-600 text-white'
-              : 'text-white/60 hover:text-white/80'
+              : 'text-gray-500 dark:text-white/60 hover:text-gray-800 dark:hover:text-white/80'
           }`}
           onClick={() => setMode('blueprint')}
         >
@@ -74,7 +74,7 @@ export default function Toolbar() {
           className={`px-3 py-1 text-xs font-semibold transition-colors ${
             mode === 'lighting'
               ? 'bg-amber-500 text-gray-900'
-              : 'text-white/60 hover:text-white/80'
+              : 'text-gray-500 dark:text-white/60 hover:text-gray-800 dark:hover:text-white/80'
           }`}
           onClick={() => setMode('lighting')}
         >
@@ -85,7 +85,7 @@ export default function Toolbar() {
       {/* Blueprint tools — only in blueprint mode */}
       {mode === 'blueprint' && (
         <>
-          <div className="w-px h-5 bg-white/20 mx-1" />
+          <div className="w-px h-5 bg-gray-300 dark:bg-white/20 mx-1" />
           {[
             { tool: 'select', icon: '↖', label: 'Select' },
             { tool: 'room', icon: '⬡', label: 'Draw Room' },
@@ -98,7 +98,7 @@ export default function Toolbar() {
               className={`px-2 py-1 text-sm rounded transition-colors ${
                 blueprintTool === tool
                   ? 'bg-blue-600 text-white'
-                  : 'text-white/60 hover:text-white/80 hover:bg-white/10'
+                  : 'text-gray-500 dark:text-white/60 hover:text-gray-800 dark:hover:text-white/80 hover:bg-gray-200 dark:hover:bg-white/10'
               }`}
               onClick={() => setBlueprintTool(tool)}
               title={label}
@@ -135,11 +135,11 @@ export default function Toolbar() {
         </svg>
       </button>
 
-      <div className="w-px h-5 bg-white/20 mx-1" />
+      <div className="w-px h-5 bg-gray-300 dark:bg-white/20 mx-1" />
 
       {/* Grid / snap */}
       <button
-        className={`toolbar-btn ${showGrid ? 'text-white' : 'text-white/40'}`}
+        className={`toolbar-btn ${showGrid ? 'text-gray-700 dark:text-white' : 'text-gray-400 dark:text-white/40'}`}
         onClick={toggleShowGrid}
         title={showGrid ? 'Hide Grid' : 'Show Grid'}
       >
@@ -149,7 +149,7 @@ export default function Toolbar() {
         </svg>
       </button>
       <button
-        className={`toolbar-btn ${snapToGrid ? 'text-amber-400' : 'text-white/40'}`}
+        className={`toolbar-btn ${snapToGrid ? 'text-amber-500 dark:text-amber-400' : 'text-gray-400 dark:text-white/40'}`}
         onClick={toggleSnapToGrid}
         title={snapToGrid ? 'Snap On' : 'Snap Off'}
       >
@@ -159,7 +159,7 @@ export default function Toolbar() {
         </svg>
       </button>
 
-      <div className="w-px h-5 bg-white/20 mx-1" />
+      <div className="w-px h-5 bg-gray-300 dark:bg-white/20 mx-1" />
 
       {/* Zoom controls */}
       <button className="toolbar-btn" onClick={zoomOut} title="Zoom Out">
@@ -169,7 +169,7 @@ export default function Toolbar() {
         </svg>
       </button>
       <button
-        className="text-white/70 text-xs font-mono hover:text-white cursor-pointer w-12 text-center"
+        className="text-gray-500 dark:text-white/70 text-xs font-mono hover:text-gray-900 dark:hover:text-white cursor-pointer w-12 text-center"
         onClick={resetZoom}
         title="Reset Zoom"
       >
@@ -182,7 +182,7 @@ export default function Toolbar() {
         </svg>
       </button>
 
-      <div className="w-px h-5 bg-white/20 mx-1" />
+      <div className="w-px h-5 bg-gray-300 dark:bg-white/20 mx-1" />
 
       {/* Dark mode */}
       <button className="toolbar-btn" onClick={toggleDarkMode} title="Toggle Dark Mode">

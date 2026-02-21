@@ -23,49 +23,72 @@ html, body, #root {
   background: transparent;
 }
 .sidebar-scroll::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.2);
+  background: rgba(0,0,0,0.15);
   border-radius: 2px;
+}
+.dark .sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.2);
 }
 
 /* Context menu */
 .context-menu {
   position: fixed;
   z-index: 9999;
-  background: #1e1e2e;
-  border: 1px solid rgba(255,255,255,0.15);
+  background: #f5f7fa;
+  border: 1px solid rgba(0,0,0,0.12);
   border-radius: 6px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
   min-width: 180px;
   overflow: hidden;
+}
+.dark .context-menu {
+  background: #1e1e2e;
+  border-color: rgba(255,255,255,0.15);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
 }
 
 .context-menu-item {
   padding: 8px 14px;
   cursor: pointer;
-  color: #e0e0e0;
+  color: #333;
   font-size: 13px;
   display: flex;
   align-items: center;
   gap: 8px;
   transition: background 0.1s;
 }
+.dark .context-menu-item {
+  color: #e0e0e0;
+}
 
 .context-menu-item:hover {
+  background: rgba(0,0,0,0.06);
+}
+.dark .context-menu-item:hover {
   background: rgba(255,255,255,0.08);
 }
 
 .context-menu-item.danger {
+  color: #e53e3e;
+}
+.dark .context-menu-item.danger {
   color: #ff6b6b;
 }
 
 .context-menu-item.danger:hover {
+  background: rgba(229,62,62,0.1);
+}
+.dark .context-menu-item.danger:hover {
   background: rgba(255,107,107,0.1);
 }
 
 .context-menu-separator {
   height: 1px;
-  background: rgba(255,255,255,0.1);
+  background: rgba(0,0,0,0.1);
   margin: 4px 0;
+}
+.dark .context-menu-separator {
+  background: rgba(255,255,255,0.1);
 }
 
 /* Label editor overlay */
@@ -128,6 +151,10 @@ html, body, #root {
 }
 
 .icon-card:hover {
+  background: rgba(0,0,0,0.06);
+  border-color: rgba(0,0,0,0.1);
+}
+.dark .icon-card:hover {
   background: rgba(255,255,255,0.08);
   border-color: rgba(255,255,255,0.1);
 }
@@ -145,10 +172,13 @@ html, body, #root {
 
 .icon-card span {
   font-size: 10px;
-  color: rgba(255,255,255,0.5);
+  color: rgba(0,0,0,0.5);
   margin-top: 4px;
   text-align: center;
   line-height: 1.2;
+}
+.dark .icon-card span {
+  color: rgba(255,255,255,0.5);
 }
 
 /* Selection marquee */
@@ -177,10 +207,17 @@ html, body, #root {
   justify-content: center;
   padding: 6px;
   border-radius: 4px;
-  color: rgba(255,255,255,0.6);
+  color: rgba(0,0,0,0.55);
   transition: color 0.15s, background 0.15s;
 }
 .toolbar-btn:hover {
+  color: rgba(0,0,0,0.85);
+  background: rgba(0,0,0,0.07);
+}
+.dark .toolbar-btn {
+  color: rgba(255,255,255,0.6);
+}
+.dark .toolbar-btn:hover {
   color: rgba(255,255,255,0.9);
   background: rgba(255,255,255,0.1);
 }
@@ -191,8 +228,14 @@ html, body, #root {
 
 /* Toolbar base styles */
 .bg-toolbar {
+  background-color: #f0f4f8;
+}
+.dark .bg-toolbar {
   background-color: #16213e;
 }
 .bg-sidebar {
+  background-color: #f5f7fa;
+}
+.dark .bg-sidebar {
   background-color: #1e1e2e;
 }

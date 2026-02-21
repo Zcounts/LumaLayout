@@ -116,11 +116,11 @@ function ScenePanel() {
   }
 
   return (
-    <div className="border-b border-white/10 pb-2">
+    <div className="border-b border-gray-200 dark:border-white/10 pb-2">
       <div className="flex items-center justify-between px-3 py-2">
-        <span className="text-xs font-semibold text-white/50 uppercase tracking-wider">Scenes</span>
+        <span className="text-xs font-semibold text-gray-500 dark:text-white/50 uppercase tracking-wider">Scenes</span>
         <button
-          className="text-white/50 hover:text-white text-lg leading-none"
+          className="text-gray-400 dark:text-white/50 hover:text-gray-800 dark:hover:text-white text-lg leading-none"
           onClick={addScene}
           title="Add Scene"
         >+</button>
@@ -136,18 +136,18 @@ function ScenePanel() {
             onDragEnd={handleSceneDragEnd}
             className={`flex items-center gap-1 px-2 py-1.5 rounded cursor-pointer group transition-colors ${
               scene.id === currentSceneId
-                ? 'bg-white/15 text-white'
-                : 'text-white/60 hover:text-white hover:bg-white/8'
+                ? 'bg-blue-100 dark:bg-white/15 text-blue-700 dark:text-white'
+                : 'text-gray-600 dark:text-white/60 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/8'
             } ${dragOverId === scene.id && draggingId !== scene.id ? 'border-t-2 border-blue-400' : ''} ${
               draggingId === scene.id ? 'opacity-40' : ''
             }`}
             onClick={() => setCurrentScene(scene.id)}
           >
             {/* Drag handle */}
-            <span className="opacity-0 group-hover:opacity-30 text-white cursor-grab text-xs select-none mr-0.5" title="Drag to reorder">⠿</span>
+            <span className="opacity-0 group-hover:opacity-30 text-gray-500 dark:text-white cursor-grab text-xs select-none mr-0.5" title="Drag to reorder">⠿</span>
             {editingId === scene.id ? (
               <input
-                className="flex-1 bg-transparent text-white text-xs outline-none border-b border-white/30"
+                className="flex-1 bg-transparent text-gray-900 dark:text-white text-xs outline-none border-b border-gray-300 dark:border-white/30"
                 value={editValue}
                 onChange={e => setEditValue(e.target.value)}
                 onBlur={commitRename}
@@ -165,7 +165,7 @@ function ScenePanel() {
             )}
             {scenes.length > 1 && (
               <button
-                className="opacity-0 group-hover:opacity-100 text-white/40 hover:text-red-400 text-xs"
+                className="opacity-0 group-hover:opacity-100 text-gray-400 dark:text-white/40 hover:text-red-500 dark:hover:text-red-400 text-xs"
                 onClick={e => { e.stopPropagation(); deleteScene(scene.id) }}
                 title="Delete Scene"
               >×</button>
@@ -196,20 +196,20 @@ function RecentProjectsPanel() {
   }
 
   return (
-    <div className="border-b border-white/10 pb-2">
+    <div className="border-b border-gray-200 dark:border-white/10 pb-2">
       <div className="px-3 py-2">
-        <span className="text-xs font-semibold text-white/50 uppercase tracking-wider">Recent</span>
+        <span className="text-xs font-semibold text-gray-500 dark:text-white/50 uppercase tracking-wider">Recent</span>
       </div>
       <div className="space-y-0.5 px-2">
         {recentProjects.map(entry => (
           <button
             key={entry.path}
-            className="w-full text-left px-2 py-1 rounded text-white/50 hover:text-white hover:bg-white/8 transition-colors"
+            className="w-full text-left px-2 py-1 rounded text-gray-600 dark:text-white/50 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/8 transition-colors"
             onClick={() => handleOpenSpecific(entry)}
             title={entry.path}
           >
             <div className="text-xs truncate">{entry.name}</div>
-            <div className="text-xs text-white/25 truncate">{entry.path}</div>
+            <div className="text-xs text-gray-400 dark:text-white/25 truncate">{entry.path}</div>
           </button>
         ))}
       </div>
@@ -243,13 +243,13 @@ export default function Sidebar() {
   if (sidebarCollapsed) return null
 
   return (
-    <div className="w-56 flex-shrink-0 bg-sidebar flex flex-col h-full border-r border-white/10">
+    <div className="w-56 flex-shrink-0 bg-sidebar flex flex-col h-full border-r border-gray-200 dark:border-white/10">
       {/* Project name */}
-      <div className="px-3 py-2 border-b border-white/10">
-        <div className="text-xs font-semibold text-white/80 truncate" title={currentFilePath || 'Unsaved project'}>
+      <div className="px-3 py-2 border-b border-gray-200 dark:border-white/10">
+        <div className="text-xs font-semibold text-gray-800 dark:text-white/80 truncate" title={currentFilePath || 'Unsaved project'}>
           {projectName}
         </div>
-        <div className="text-xs text-white/30 truncate mt-0.5">
+        <div className="text-xs text-gray-400 dark:text-white/30 truncate mt-0.5">
           {currentFilePath ? currentFilePath.split(/[\\/]/).pop() : 'Unsaved'}
         </div>
       </div>
@@ -264,16 +264,16 @@ export default function Sidebar() {
       {mode === 'lighting' && (
         <div className="flex-1 overflow-y-auto sidebar-scroll">
           <div className="px-3 py-2">
-            <span className="text-xs font-semibold text-white/50 uppercase tracking-wider">Icon Library</span>
+            <span className="text-xs font-semibold text-gray-500 dark:text-white/50 uppercase tracking-wider">Icon Library</span>
           </div>
           {ICON_CATEGORIES.map(cat => (
             <div key={cat.name}>
               <button
-                className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-medium text-white/70 hover:text-white hover:bg-white/5 transition-colors"
+                className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
                 onClick={() => toggleCategory(cat.name)}
               >
                 <span>{cat.name}</span>
-                <span className="text-white/30">{openCategories[cat.name] ? '▾' : '▸'}</span>
+                <span className="text-gray-400 dark:text-white/30">{openCategories[cat.name] ? '▾' : '▸'}</span>
               </button>
               {openCategories[cat.name] && (
                 <div className="grid grid-cols-3 gap-1 px-2 pb-2">
@@ -303,8 +303,8 @@ export default function Sidebar() {
       {/* Blueprint mode hint */}
       {mode === 'blueprint' && (
         <div className="flex-1 flex items-start px-4 py-4">
-          <div className="text-white/30 text-xs leading-relaxed">
-            <p className="font-semibold text-white/50 mb-2">Blueprint Mode</p>
+          <div className="text-gray-400 dark:text-white/30 text-xs leading-relaxed">
+            <p className="font-semibold text-gray-500 dark:text-white/50 mb-2">Blueprint Mode</p>
             <p className="mb-1">Use the toolbar tools to:</p>
             <ul className="space-y-1 ml-2">
               <li>⬡ Draw room outline</li>
