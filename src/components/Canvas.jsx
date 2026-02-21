@@ -25,13 +25,27 @@ function GridLayer({ width, height, scale, offsetX, offsetY, gridSize }) {
 }
 
 // ---- Blueprint Shape ----
-function BlueprintShapeNode({ shape }) {
-  const props = { fill: shape.fill, stroke: shape.stroke, strokeWidth: shape.strokeWidth, listening: false }
+function BlueprintShapeNode({ shape, isSelected, onSelect, isSelectMode }) {
+  const strokeColor = isSelected ? '#2563eb' : shape.stroke
+  const strokeWidth = isSelected ? Math.max(shape.strokeWidth, 2) : shape.strokeWidth
+  const props = { fill: shape.fill, stroke: strokeColor, strokeWidth, listening: isSelectMode }
   return (
-    <Group x={shape.x} y={shape.y} rotation={shape.rotation} listening={false}>
+    <Group
+      x={shape.x} y={shape.y} rotation={shape.rotation}
+      listening={isSelectMode}
+      onMouseDown={isSelectMode ? (e) => { e.cancelBubble = true; onSelect(shape.id) } : undefined}
+    >
       {shape.shapeType === 'rect' && <Rect width={shape.width} height={shape.height} offsetX={shape.width / 2} offsetY={shape.height / 2} {...props} />}
       {shape.shapeType === 'circle' && <Circle radius={Math.min(shape.width, shape.height) / 2} {...props} />}
       {shape.shapeType === 'triangle' && <RegularPolygon sides={3} radius={Math.min(shape.width, shape.height) / 2} {...props} />}
+      {isSelected && (
+        <Rect
+          offsetX={shape.width / 2 + 5} offsetY={shape.height / 2 + 5}
+          width={shape.width + 10} height={shape.height + 10}
+          stroke="#2563eb" strokeWidth={1.5} fill="rgba(37,99,235,0.08)"
+          dash={[5, 3]} listening={false}
+        />
+      )}
       {shape.label && <Text text={shape.label} fontSize={12} fill="#333" y={shape.height / 2 + 4} offsetX={shape.width / 2} align="center" width={shape.width} listening={false} />}
     </Group>
   )
@@ -134,6 +148,9 @@ export default function Canvas() {
   const hideContextMenu = useStore(s => s.hideContextMenu)
   const showLabelEditor = useStore(s => s.showLabelEditor)
   const blueprintTool = useStore(s => s.blueprintTool)
+  const selectedShapeIds = useStore(s => s.selectedShapeIds)
+  const selectShape = useStore(s => s.selectShape)
+  const clearShapeSelection = useStore(s => s.clearShapeSelection)
   const addRoomPoint = useStore(s => s.addRoomPoint)
   const closeRoom = useStore(s => s.closeRoom)
   const addShape = useStore(s => s.addShape)
@@ -204,13 +221,13 @@ export default function Canvas() {
       if ((e.ctrlKey || e.metaKey) && e.key === 'd') { e.preventDefault(); duplicateSelectedElements(); return }
       if ((e.ctrlKey || e.metaKey) && e.key === 'g') { e.preventDefault(); groupSelectedElements(); return }
       if (e.key === 'Delete' || e.key === 'Backspace') { if (selectedIds.length > 0) { e.preventDefault(); deleteSelectedElements() } return }
-      if (e.key === 'Escape') { clearSelection(); hideContextMenu(); setBlueprintState() }
+      if (e.key === 'Escape') { clearSelection(); clearShapeSelection(); hideContextMenu(); setBlueprintState() }
     }
     const onKeyUp = (e) => { if (e.key === ' ') setIsSpaceDown(false) }
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)
     return () => { window.removeEventListener('keydown', onKeyDown); window.removeEventListener('keyup', onKeyUp) }
-  }, [selectedIds, undo, redo, duplicateSelectedElements, groupSelectedElements, deleteSelectedElements, clearSelection, hideContextMenu])
+  }, [selectedIds, undo, redo, duplicateSelectedElements, groupSelectedElements, deleteSelectedElements, clearSelection, clearShapeSelection, hideContextMenu])
 
   const setBlueprintState = () => { setShapeStart(null); setShapePreview(null); setPreviewPoint(null) }
 
@@ -377,6 +394,10 @@ export default function Canvas() {
         setShapeStart({ x: sx, y: sy })
         return
       }
+      // blueprintTool === 'select': clear shape selection on background click
+      if (blueprintTool === 'select') {
+        clearShapeSelection()
+      }
       return
     }
 
@@ -388,7 +409,7 @@ export default function Canvas() {
       dragSelStart.current = { ...pos }
       setDragSel({ x1: pos.x, y1: pos.y, x2: pos.x, y2: pos.y })
     }
-  }, [isSpaceDown, mode, blueprintTool, stageScale, getCanvasPointer, snapCoord, getCurrentScene, addRoomPoint, closeRoom, addShape, clearSelection, hideContextMenu])
+  }, [isSpaceDown, mode, blueprintTool, stageScale, getCanvasPointer, snapCoord, getCurrentScene, addRoomPoint, closeRoom, addShape, clearSelection, clearShapeSelection, hideContextMenu])
 
   const handleStageMouseMove = useCallback((e) => {
     if (isPanning) {
@@ -420,7 +441,7 @@ export default function Canvas() {
     if (mode === 'blueprint' && shapeStart && shapePreview && shapePreview.width > 5 && shapePreview.height > 5) {
       addShape({
         shapeType: blueprintTool,
-        x: shapeStart.x + shapePreview.width / 2, y: shapeStart.y + shapePreview.height / 2,
+        x: shapePreview.x + shapePreview.width / 2, y: shapePreview.y + shapePreview.height / 2,
         width: shapePreview.width, height: shapePreview.height,
         fill: '#e2e8f0', stroke: '#334155', strokeWidth: 2,
       })
@@ -494,7 +515,14 @@ export default function Canvas() {
         {/* Blueprint layer */}
         <Layer listening={mode === 'blueprint'}>
           {scene && <RoomLayer scene={scene} scale={stageScale} />}
-          {scene?.shapes.map(s => <BlueprintShapeNode key={s.id} shape={s} />)}
+          {scene?.shapes.map(s => (
+            <BlueprintShapeNode
+              key={s.id} shape={s}
+              isSelected={selectedShapeIds.includes(s.id)}
+              onSelect={(id) => selectShape(id, false)}
+              isSelectMode={blueprintTool === 'select'}
+            />
+          ))}
           {/* Shape draw preview */}
           {shapePreview && blueprintTool === 'rect' && (
             <Rect x={shapePreview.x} y={shapePreview.y} width={shapePreview.width} height={shapePreview.height}
