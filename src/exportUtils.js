@@ -149,7 +149,7 @@ async function renderSceneToDataURL(scene, canvasW = EXPORT_W, canvasH = EXPORT_
           g.add(new Konva.Rect({ width: el.width, height: el.height, offsetX: hw, offsetY: hh, fill: 'rgba(100,120,200,0.25)', stroke: 'rgba(100,120,200,0.5)', strokeWidth: 1, listening: false }))
           res()
         }
-        img.src = `/icons/${encodeURIComponent(el.iconPath)}`
+        img.src = el.iconPath.startsWith('data:') ? el.iconPath : `/icons/${encodeURIComponent(el.iconPath)}`
       })
       imgPromises.push(p)
 
@@ -224,7 +224,7 @@ export async function exportScenePDF(scene) {
 }
 
 export async function exportAllScenesPDF(scenes) {
-  const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
   for (let i = 0; i < scenes.length; i++) {
     if (i > 0) pdf.addPage()
     const imgData = await renderSceneToDataURL(scenes[i], EXPORT_W, EXPORT_H)
