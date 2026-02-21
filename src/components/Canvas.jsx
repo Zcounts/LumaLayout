@@ -831,12 +831,16 @@ export default function Canvas() {
 
           {/* Transformer for resize/rotate/move in Lighting Mode.
               Default: proportional scaling (corner anchors only).
-              Hold Shift: free/unconstrained scaling (all anchors). */}
+              Hold Shift: free/unconstrained scaling (all anchors).
+              shiftBehavior="inverted" makes Konva read e.shiftKey directly in its
+              mousemove handler: keepProportion = keepRatio && !e.shiftKey.
+              With keepRatio={true} (always), no-shift → proportional, shift → free. */}
           {mode === 'lighting' && (
             <Transformer
               ref={transformerRef}
               rotateEnabled
-              keepRatio={!shiftDown}
+              shiftBehavior="inverted"
+              keepRatio={true}
               enabledAnchors={shiftDown
                 ? ['top-left', 'top-center', 'top-right', 'middle-left', 'middle-right', 'bottom-left', 'bottom-center', 'bottom-right']
                 : ['top-left', 'top-right', 'bottom-left', 'bottom-right']}
