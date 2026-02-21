@@ -6,63 +6,58 @@ const ICON_CATEGORIES = [
   {
     name: 'Cameras',
     icons: [
-      { name: 'DSLR', file: 'plot icons-01.svg' },
-      { name: 'Cinema Cam', file: 'plot icons-02.svg' },
-      { name: 'Mirrorless', file: 'plot icons-03.svg' },
-      { name: 'Video Cam', file: 'plot icons-04.svg' },
+      { name: 'Camera Blue', file: 'camera_blue.svg' },
+      { name: 'Camera Gray', file: 'camera_gray.svg' },
+      { name: 'Camera Green', file: 'camera_green.svg' },
+      { name: 'Camera Orange', file: 'camera_orange.svg' },
+      { name: 'Camera Purple', file: 'camera_purple.svg' },
+      { name: 'Camera Red', file: 'camera_red.svg' },
+      { name: 'Camera Yellow', file: 'camera_yellow.svg' },
     ],
   },
   {
     name: 'Light Sources',
     icons: [
-      { name: 'Fresnel', file: 'plot icons-05.svg' },
-      { name: 'Softbox', file: 'plot icons-06.svg' },
-      { name: 'LED Panel', file: 'plot icons-07.svg' },
-      { name: 'Beauty Dish', file: 'plot icons-08.svg' },
-      { name: 'Practical', file: 'plot icons-09.svg' },
-      { name: 'HMI', file: 'plot icons-10.svg' },
+      { name: 'Cob Fresnel', file: 'cob_fresnel.svg' },
+      { name: 'Tube Light', file: 'tube_light.svg' },
+      { name: 'Tube Light Big', file: 'tube_light_big.svg' },
+      { name: 'Panel Light', file: 'panel_light.svg' },
+      { name: 'China Ball', file: 'china_ball.svg' },
+      { name: 'Practical Light', file: 'practical_light.svg' },
+      { name: 'HMI Light', file: 'HMI_light.svg' },
+      { name: 'HMI Light 2', file: 'hmi_light_2.svg' },
+      { name: 'HMI Light 3', file: 'hmi_light_3.svg' },
+      { name: 'HMI Light 4', file: 'hmi_light_4.svg' },
+      { name: 'HMI Light 5', file: 'hmi_light_5.svg' },
+      { name: 'HMI Light 6', file: 'hmi_light_6.svg' },
+      { name: 'Spotlight', file: 'spotlight.svg' },
+      { name: 'Sun Icon', file: 'sun_icon.svg' },
     ],
   },
   {
     name: 'Modifiers',
     icons: [
-      { name: 'Umbrella', file: 'plot icons-11.svg' },
-      { name: 'Reflector', file: 'plot icons-12.svg' },
-      { name: 'Flag', file: 'plot icons-13.svg' },
-      { name: 'Scrim', file: 'plot icons-14.svg' },
-      { name: 'Diffusion', file: 'plot icons-15.svg' },
-      { name: 'Grid', file: 'plot icons-16.svg' },
+      { name: 'Diffusion', file: 'diffusion.svg' },
+      { name: 'Diffusion 2', file: 'diffusion_2.svg' },
+      { name: 'Negative Fill', file: 'negative_fill.svg' },
+      { name: 'Black Floppy', file: 'black_floppy.svg' },
     ],
   },
   {
     name: 'Stands',
     icons: [
-      { name: 'C-Stand', file: 'plot icons-17.svg' },
-      { name: 'Light Stand', file: 'plot icons-18.svg' },
-      { name: 'Boom Arm', file: 'plot icons-19.svg' },
-      { name: 'Tripod', file: 'plot icons-20.svg' },
+      { name: 'C Stand', file: 'c_stand.svg' },
     ],
   },
   {
     name: 'Subjects',
     icons: [
-      { name: 'Actor', file: 'plot icons-21.svg' },
-      { name: 'Position', file: 'plot icons-22.svg' },
-      { name: 'Subject A', file: 'plot icons-23.svg' },
-      { name: 'Subject B', file: 'plot icons-24.svg' },
-    ],
-  },
-  {
-    name: 'Misc',
-    icons: [
-      { name: 'Arrow', file: 'plot icons-25.svg' },
-      { name: 'Table', file: 'plot icons-26.svg' },
-      { name: 'Chair', file: 'plot icons-27.svg' },
-      { name: 'Monitor', file: 'plot icons-28.svg' },
-      { name: 'Prop A', file: 'plot icons-29.svg' },
-      { name: 'Prop B', file: 'plot icons-30.svg' },
-      { name: 'Prop C', file: 'plot icons-31.svg' },
-      { name: 'Element', file: 'plot icons-32.svg' },
+      { name: 'Actor Blue', file: 'actor_blue.svg' },
+      { name: 'Actor Green', file: 'actor_green.svg' },
+      { name: 'Actor Orange', file: 'actor_orange.svg' },
+      { name: 'Actor Pink', file: 'actor_pink.svg' },
+      { name: 'Actor Red', file: 'actor_red.svg' },
+      { name: 'Actor Yellow', file: 'actor_yellow.svg' },
     ],
   },
 ]
@@ -293,7 +288,7 @@ export default function Sidebar() {
                       <img
                         src={`./icons/${encodeURIComponent(icon.file)}`}
                         alt={icon.name}
-                        onError={e => { e.target.src = './icons/plot%20icons-01.svg' }}
+                        onError={e => { e.target.src = './icons/camera_blue.svg' }}
                       />
                       <span>{icon.name}</span>
                     </div>
