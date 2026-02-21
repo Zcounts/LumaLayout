@@ -88,6 +88,9 @@ const initialState = {
   // Selection (in lighting mode)
   selectedIds: [],
 
+  // Selection (in blueprint mode)
+  selectedShapeIds: [],
+
   // Blueprint drawing state
   blueprintTool: 'select', // 'select' | 'room' | 'rect' | 'circle' | 'triangle'
   drawingRoom: false,
@@ -421,6 +424,17 @@ export const useStore = create((set, get) => ({
   },
 
   clearSelection: () => set({ selectedIds: [] }),
+
+  // ---- Blueprint shape selection ----
+  selectShape: (id, multi = false) =>
+    set(s => {
+      if (multi) {
+        const already = s.selectedShapeIds.includes(id)
+        return { selectedShapeIds: already ? s.selectedShapeIds.filter(sid => sid !== id) : [...s.selectedShapeIds, id] }
+      }
+      return { selectedShapeIds: [id] }
+    }),
+  clearShapeSelection: () => set({ selectedShapeIds: [] }),
 
   // ---- Drag selection ----
   setDragSelecting: (val) => set({ dragSelecting: val }),
