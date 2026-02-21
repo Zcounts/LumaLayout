@@ -129,10 +129,12 @@ async function renderSceneToDataURL(scene, canvasW = EXPORT_W, canvasH = EXPORT_
         g.add(new Konva.RegularPolygon({ sides: 3, radius: Math.min(shape.width, shape.height) / 2, ...props }))
       }
       if (shape.label) {
+        // Center the label inside the shape, matching the live-canvas rendering.
         g.add(new Konva.Text({
           text: shape.label, fontSize: 12, fill: '#333',
-          y: shape.height / 2 + 4, offsetX: shape.width / 2,
-          align: 'center', width: shape.width, listening: false,
+          width: shape.width, height: shape.height,
+          offsetX: shape.width / 2, offsetY: shape.height / 2,
+          align: 'center', verticalAlign: 'middle', listening: false,
         }))
       }
       bpLayer.add(g)
@@ -175,10 +177,17 @@ async function renderSceneToDataURL(scene, canvasW = EXPORT_W, canvasH = EXPORT_
       const infoLines = [el.label, el.accessories, el.colorTemperature, el.notes].filter(Boolean)
       if (infoLines.length > 0) {
         const textW = Math.max(el.width, 80)
+        // In the export the text scales with the group (no counter-scale), so we
+        // need a local-space gap that keeps the text clear of the icon for any
+        // element size.  Use at least 8 local units, or 15 % of the base height,
+        // whichever is larger – this mirrors the scale-aware logic in Canvas.jsx.
+        const sy       = el.scaleY || 1
+        const worldGap = Math.max(8, (el.height / 2) * sy * 0.30)
+        const localGap = worldGap / sy
         g.add(new Konva.Text({
           text: infoLines.join('\n'), fontSize: 11, fill: '#1e293b',
           align: 'center', width: textW, offsetX: textW / 2,
-          y: el.height / 2 + 4, fontFamily: 'sans-serif', lineHeight: 1.35, listening: false,
+          y: el.height / 2 + localGap, fontFamily: 'sans-serif', lineHeight: 1.35, listening: false,
         }))
       }
       lightLayer.add(g)
