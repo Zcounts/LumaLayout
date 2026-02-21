@@ -37,6 +37,7 @@
   "build": {
     "appId": "com.lumalayout.app",
     "productName": "LumaLayout",
+    "publisherName": "fairlyOdd L.L.C",
     "icon": "build/icon",
     "directories": {
       "output": "dist-electron"
@@ -54,8 +55,7 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "publisherName": "fairlyOdd L.L.C"
+      "allowToChangeInstallationDirectory": true
     },
     "files": [
       "dist/**/*",
