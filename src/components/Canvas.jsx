@@ -67,47 +67,61 @@ function GridLayer({ width, height, scale, offsetX, offsetY, gridSize }) {
 }
 
 // ---- Blueprint Shape ----
+// id is set on the Group so the Transformer can find it by id.
+// The Transformer renders the selection border — no manual selection rect needed.
 function BlueprintShapeNode({ shape, isSelected, onSelect, isSelectMode, onDragEnd }) {
   const strokeColor = isSelected ? '#2563eb' : shape.stroke
   const strokeWidth = isSelected ? Math.max(shape.strokeWidth, 2) : shape.strokeWidth
   const props = { fill: shape.fill, stroke: strokeColor, strokeWidth, listening: isSelectMode }
   return (
     <Group
+      id={shape.id}
       x={shape.x} y={shape.y} rotation={shape.rotation}
       listening={isSelectMode}
       draggable={isSelectMode}
-      onMouseDown={isSelectMode ? (e) => { e.cancelBubble = true; onSelect(shape.id) } : undefined}
+      onMouseDown={isSelectMode ? (e) => { e.cancelBubble = true; onSelect(shape.id, e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey) } : undefined}
       onDragStart={isSelectMode ? (e) => { e.cancelBubble = true } : undefined}
       onDragEnd={isSelectMode ? (e) => { e.cancelBubble = true; onDragEnd(shape.id, e.target.x(), e.target.y()) } : undefined}
     >
       {shape.shapeType === 'rect' && <Rect width={shape.width} height={shape.height} offsetX={shape.width / 2} offsetY={shape.height / 2} {...props} />}
       {shape.shapeType === 'circle' && <Circle radius={Math.min(shape.width, shape.height) / 2} {...props} />}
       {shape.shapeType === 'triangle' && <RegularPolygon sides={3} radius={Math.min(shape.width, shape.height) / 2} {...props} />}
-      {isSelected && (
-        <Rect
-          offsetX={shape.width / 2 + 5} offsetY={shape.height / 2 + 5}
-          width={shape.width + 10} height={shape.height + 10}
-          stroke="#2563eb" strokeWidth={1.5} fill="rgba(37,99,235,0.08)"
-          dash={[5, 3]} listening={false}
-        />
-      )}
       {shape.label && <Text text={shape.label} fontSize={12} fill="#333" y={shape.height / 2 + 4} offsetX={shape.width / 2} align="center" width={shape.width} listening={false} />}
     </Group>
   )
 }
 
-// ---- Room Drawing ----
-function RoomLayer({ scene, scale }) {
+// ---- Room Drawing / Selection ----
+// In select mode the whole room group is draggable and selectable.
+// The Transformer attaches to this group (id="__room__") for scale/rotate.
+function RoomLayer({ scene, scale, isSelectMode, isSelected, onSelect, onDragEnd }) {
   const { roomPoints, roomClosed } = scene
   if (!roomPoints.length) return null
   const flatPts = roomPoints.flatMap(p => [p.x, p.y])
+  const strokeColor = isSelected ? '#2563eb' : '#334155'
+  const strokeWidth = (isSelected ? 4 : 3) / scale
+
   return (
-    <>
-      <Line points={flatPts} stroke="#334155" strokeWidth={3 / scale} closed={roomClosed} fill={roomClosed ? 'rgba(226,232,240,0.4)' : undefined} listening={false} />
+    <Group
+      id="__room__"
+      draggable={isSelectMode}
+      listening={isSelectMode}
+      onMouseDown={isSelectMode ? (e) => { e.cancelBubble = true; onSelect('__room__', e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey) } : undefined}
+      onDragStart={isSelectMode ? (e) => { e.cancelBubble = true } : undefined}
+      onDragEnd={isSelectMode ? onDragEnd : undefined}
+    >
+      <Line
+        points={flatPts}
+        stroke={strokeColor}
+        strokeWidth={strokeWidth}
+        closed={roomClosed}
+        fill={roomClosed ? 'rgba(226,232,240,0.4)' : undefined}
+        hitStrokeWidth={14 / scale}
+      />
       {!roomClosed && roomPoints.map((p, i) => (
         <Circle key={i} x={p.x} y={p.y} radius={5 / scale} fill={i === 0 ? '#10b981' : '#3b82f6'} listening={false} />
       ))}
-    </>
+    </Group>
   )
 }
 
@@ -168,6 +182,8 @@ export default function Canvas() {
   const transformerRef = useRef(null)
   const layerRef = useRef(null)
   const containerRef = useRef(null)
+  const blueprintLayerRef = useRef(null)
+  const blueprintTransformerRef = useRef(null)
 
   // Expose stage to App.jsx for export
   useEffect(() => {
@@ -200,7 +216,9 @@ export default function Canvas() {
   const selectedShapeIds = useStore(s => s.selectedShapeIds)
   const selectShape = useStore(s => s.selectShape)
   const clearShapeSelection = useStore(s => s.clearShapeSelection)
+  const deleteSelectedShapes = useStore(s => s.deleteSelectedShapes)
   const updateShape = useStore(s => s.updateShape)
+  const setRoomPoints = useStore(s => s.setRoomPoints)
   const addRoomPoint = useStore(s => s.addRoomPoint)
   const closeRoom = useStore(s => s.closeRoom)
   const addShape = useStore(s => s.addShape)
@@ -251,7 +269,7 @@ export default function Canvas() {
     return { x: (pos.x - stageX) / stageScale, y: (pos.y - stageY) / stageScale }
   }, [stageX, stageY, stageScale])
 
-  // Update Transformer when selection changes
+  // Update Transformer (lighting) when selection changes
   useEffect(() => {
     if (!transformerRef.current || !layerRef.current) return
     const nodes = selectedIds
@@ -260,6 +278,21 @@ export default function Canvas() {
     transformerRef.current.nodes(nodes)
     transformerRef.current.getLayer()?.batchDraw()
   }, [selectedIds])
+
+  // Update blueprint Transformer when blueprint selection or tool changes
+  useEffect(() => {
+    if (!blueprintTransformerRef.current || !blueprintLayerRef.current) return
+    if (blueprintTool !== 'select') {
+      blueprintTransformerRef.current.nodes([])
+      blueprintLayerRef.current.batchDraw()
+      return
+    }
+    const nodes = selectedShapeIds
+      .map(id => blueprintLayerRef.current.findOne(`#${id}`))
+      .filter(Boolean)
+    blueprintTransformerRef.current.nodes(nodes)
+    blueprintLayerRef.current.batchDraw()
+  }, [selectedShapeIds, blueprintTool])
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -270,7 +303,11 @@ export default function Canvas() {
       if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) { e.preventDefault(); redo(); return }
       if ((e.ctrlKey || e.metaKey) && e.key === 'd') { e.preventDefault(); duplicateSelectedElements(); return }
       if ((e.ctrlKey || e.metaKey) && e.key === 'g') { e.preventDefault(); groupSelectedElements(); return }
-      if (e.key === 'Delete' || e.key === 'Backspace') { if (selectedIds.length > 0) { e.preventDefault(); deleteSelectedElements() } return }
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (mode === 'lighting' && selectedIds.length > 0) { e.preventDefault(); deleteSelectedElements() }
+        else if (mode === 'blueprint' && selectedShapeIds.length > 0) { e.preventDefault(); deleteSelectedShapes() }
+        return
+      }
       if (e.key === 'Escape') { clearSelection(); clearShapeSelection(); hideContextMenu(); setBlueprintState() }
       // Blueprint mode tool shortcuts
       if (mode === 'blueprint' && !e.ctrlKey && !e.metaKey && !e.altKey) {
@@ -285,7 +322,7 @@ export default function Canvas() {
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)
     return () => { window.removeEventListener('keydown', onKeyDown); window.removeEventListener('keyup', onKeyUp) }
-  }, [mode, selectedIds, undo, redo, duplicateSelectedElements, groupSelectedElements, deleteSelectedElements, clearSelection, clearShapeSelection, hideContextMenu, setBlueprintTool])
+  }, [mode, selectedIds, selectedShapeIds, undo, redo, duplicateSelectedElements, groupSelectedElements, deleteSelectedElements, deleteSelectedShapes, clearSelection, clearShapeSelection, hideContextMenu, setBlueprintTool])
 
   const setBlueprintState = () => { setShapeStart(null); setShapePreview(null); setPreviewPoint(null) }
 
@@ -314,7 +351,6 @@ export default function Canvas() {
 
   // ---- Group-aware drag ----
   const handleDragStart = useCallback((id) => {
-    // If not selected, select it
     if (!selectedIds.includes(id)) {
       const scene = getCurrentScene()
       const el = scene?.elements.find(e => e.id === id)
@@ -325,7 +361,6 @@ export default function Canvas() {
         selectElement(id, false)
       }
     }
-    // Capture start positions of all selected elements
     const scene = getCurrentScene()
     const positions = {}
     const relevantIds = selectedIds.includes(id) ? selectedIds : [id]
@@ -342,7 +377,6 @@ export default function Canvas() {
     if (!startPos) return
     const dx = x - startPos.x
     const dy = y - startPos.y
-    // Move sibling selected nodes visually (without state update)
     const relevantIds = Object.keys(dragStartPositions.current)
     relevantIds.forEach(sid => {
       if (sid === id) return
@@ -364,7 +398,6 @@ export default function Canvas() {
     if (allIds.length === 1) {
       updateElementWithHistory(id, { x: snapCoord(x), y: snapCoord(y) })
     } else {
-      // Raw delta from dragged element, snap each resulting position
       const dx = x - startPos.x
       const dy = y - startPos.y
       updateMultipleElementsWithHistory(allIds, (el) => ({
@@ -373,7 +406,7 @@ export default function Canvas() {
       }))
     }
     dragStartPositions.current = {}
-  }, [snapCoord, snapToGrid, gridSize, updateElementWithHistory, updateMultipleElementsWithHistory])
+  }, [snapCoord, updateElementWithHistory, updateMultipleElementsWithHistory])
 
   // ---- Blueprint shape drag end ----
   const handleShapeDragEnd = useCallback((id, x, y) => {
@@ -381,7 +414,62 @@ export default function Canvas() {
     updateShape(id, { x: snapCoord(x), y: snapCoord(y) })
   }, [pushHistorySnapshot, updateShape, snapCoord])
 
-  // ---- Transform end (scale/rotate via Transformer) ----
+  // ---- Room drag end — move all room points by the group's drag delta ----
+  const handleRoomDragEnd = useCallback((e) => {
+    const group = e.target
+    const dx = group.x()
+    const dy = group.y()
+    // Reset the group's position immediately so Konva doesn't accumulate offset
+    group.x(0)
+    group.y(0)
+    if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return
+    const scene = getCurrentScene()
+    if (!scene) return
+    pushHistorySnapshot()
+    setRoomPoints(scene.roomPoints.map(p => ({ x: snapCoord(p.x + dx), y: snapCoord(p.y + dy) })))
+  }, [getCurrentScene, pushHistorySnapshot, setRoomPoints, snapCoord])
+
+  // ---- Blueprint transform end (scale / rotate for shapes and room) ----
+  const handleBlueprintTransformEnd = useCallback(() => {
+    pushHistorySnapshot()
+    selectedShapeIds.forEach(id => {
+      const node = blueprintLayerRef.current?.findOne(`#${id}`)
+      if (!node) return
+
+      if (id === '__room__') {
+        const scene = getCurrentScene()
+        if (!scene) return
+        // Apply the group's full transform matrix to each room point, then reset
+        const transform = node.getTransform()
+        const newPoints = scene.roomPoints.map(pt => {
+          const tp = transform.point({ x: pt.x, y: pt.y })
+          return { x: snapCoord(tp.x), y: snapCoord(tp.y) }
+        })
+        setRoomPoints(newPoints)
+        node.x(0); node.y(0); node.rotation(0); node.scaleX(1); node.scaleY(1)
+        return
+      }
+
+      // Regular blueprint shape
+      const scene = getCurrentScene()
+      const shape = scene?.shapes.find(s => s.id === id)
+      if (!shape) return
+      const newWidth = Math.max(10, Math.abs(shape.width * node.scaleX()))
+      const newHeight = Math.max(10, Math.abs(shape.height * node.scaleY()))
+      updateShape(id, {
+        x: node.x(),
+        y: node.y(),
+        rotation: node.rotation(),
+        width: newWidth,
+        height: newHeight,
+      })
+      // Bake scale into dimensions and reset to 1 so the next render is clean
+      node.scaleX(1)
+      node.scaleY(1)
+    })
+  }, [pushHistorySnapshot, selectedShapeIds, getCurrentScene, updateShape, setRoomPoints, snapCoord])
+
+  // ---- Lighting transform end ----
   const handleTransformEnd = useCallback(() => {
     pushHistorySnapshot()
     selectedIds.forEach(id => {
@@ -433,7 +521,6 @@ export default function Canvas() {
     const rect = containerRef.current.getBoundingClientRect()
     const cx = (e.clientX - rect.left - stageX) / stageScale
     const cy = (e.clientY - rect.top - stageY) / stageScale
-    // Parse SVG to preserve natural aspect ratio
     const src = iconFile.startsWith('data:') ? iconFile : `./icons/${encodeURIComponent(iconFile)}`
     const natural = await getSVGNaturalSize(src)
     const { width, height } = calcIconSize(natural, 60)
@@ -462,7 +549,7 @@ export default function Canvas() {
         setShapeStart({ x: sx, y: sy })
         return
       }
-      // blueprintTool === 'select': clear shape selection on background click
+      // blueprintTool === 'select': clicking empty canvas clears selection
       if (blueprintTool === 'select') {
         clearShapeSelection()
       }
@@ -546,6 +633,8 @@ export default function Canvas() {
     ? { left: Math.min(dragSel.x1, dragSel.x2), top: Math.min(dragSel.y1, dragSel.y2), width: Math.abs(dragSel.x2 - dragSel.x1), height: Math.abs(dragSel.y2 - dragSel.y1) }
     : null
 
+  const isSelectMode = blueprintTool === 'select'
+
   return (
     <div
       ref={containerRef}
@@ -581,14 +670,23 @@ export default function Canvas() {
         </Layer>
 
         {/* Blueprint layer */}
-        <Layer listening={mode === 'blueprint'}>
-          {scene && <RoomLayer scene={scene} scale={stageScale} />}
+        <Layer ref={blueprintLayerRef} listening={mode === 'blueprint'}>
+          {scene && (
+            <RoomLayer
+              scene={scene}
+              scale={stageScale}
+              isSelectMode={isSelectMode}
+              isSelected={selectedShapeIds.includes('__room__')}
+              onSelect={(id, multi) => selectShape(id, multi)}
+              onDragEnd={handleRoomDragEnd}
+            />
+          )}
           {scene?.shapes.map(s => (
             <BlueprintShapeNode
               key={s.id} shape={s}
               isSelected={selectedShapeIds.includes(s.id)}
-              onSelect={(id) => selectShape(id, false)}
-              isSelectMode={blueprintTool === 'select'}
+              onSelect={(id, multi) => selectShape(id, multi)}
+              isSelectMode={isSelectMode}
               onDragEnd={handleShapeDragEnd}
             />
           ))}
@@ -612,6 +710,24 @@ export default function Canvas() {
             <Line
               points={[scene.roomPoints[scene.roomPoints.length - 1].x, scene.roomPoints[scene.roomPoints.length - 1].y, previewPoint.x, previewPoint.y]}
               stroke="#3b82f6" strokeWidth={2 / stageScale} dash={[6 / stageScale, 3 / stageScale]} listening={false}
+            />
+          )}
+          {/* Blueprint Transformer — move, scale, rotate for all blueprint shapes and room */}
+          {mode === 'blueprint' && (
+            <Transformer
+              ref={blueprintTransformerRef}
+              rotateEnabled
+              enabledAnchors={['top-left', 'top-center', 'top-right', 'middle-left', 'middle-right', 'bottom-left', 'bottom-center', 'bottom-right']}
+              boundBoxFunc={(oldBox, newBox) => (Math.abs(newBox.width) < 10 || Math.abs(newBox.height) < 10 ? oldBox : newBox)}
+              onTransformEnd={handleBlueprintTransformEnd}
+              anchorFill="#ffffff"
+              anchorStroke="#2563eb"
+              anchorSize={9}
+              anchorCornerRadius={2}
+              borderStroke="#2563eb"
+              borderStrokeWidth={1.5}
+              borderDash={[5, 3]}
+              rotateAnchorOffset={22}
             />
           )}
         </Layer>
@@ -639,7 +755,7 @@ export default function Canvas() {
             )
           ))}
 
-          {/* Transformer for resize/rotate/move */}
+          {/* Transformer for resize/rotate/move in Lighting Mode */}
           {mode === 'lighting' && (
             <Transformer
               ref={transformerRef}
@@ -668,7 +784,7 @@ export default function Canvas() {
 
       {/* Bottom status bar */}
       <div className="absolute bottom-2 right-3 bg-white/90 border border-gray-200 rounded px-2 py-0.5 text-xs text-gray-500 font-mono shadow-sm">
-        {Math.round(stageScale * 100)}% {selectedIds.length > 0 ? `· ${selectedIds.length} selected` : ''}
+        {Math.round(stageScale * 100)}%{selectedIds.length > 0 ? ` · ${selectedIds.length} selected` : ''}{selectedShapeIds.length > 0 ? ` · ${selectedShapeIds.length} shape(s) selected` : ''}
       </div>
     </div>
   )

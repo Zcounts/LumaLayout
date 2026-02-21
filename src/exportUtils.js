@@ -232,3 +232,12 @@ export async function exportAllScenesPDF(scenes) {
   }
   return arrayBufferToBase64(pdf.output('arraybuffer'))
 }
+
+// Returns an array of { name, base64Data } — one per scene — for saving as individual PNGs
+export async function exportAllScenesPNG(scenes) {
+  return Promise.all(scenes.map(async (scene) => {
+    const dataURL = await renderSceneToDataURL(scene, EXPORT_W, EXPORT_H)
+    const safeName = scene.name.replace(/[^a-z0-9_-]/gi, '_') + '.png'
+    return { name: safeName, base64Data: dataURL.split(',')[1] }
+  }))
+}

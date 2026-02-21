@@ -177,45 +177,6 @@ function ScenePanel() {
   )
 }
 
-function RecentProjectsPanel() {
-  const recentProjects = useStore(s => s.recentProjects)
-  const importData = useStore(s => s.importData)
-  const addRecentProject = useStore(s => s.addRecentProject)
-
-  if (!recentProjects.length) return null
-
-  const handleOpenSpecific = async (entry) => {
-    if (!window.electronAPI) return
-    try {
-      const result = await window.electronAPI.readFile({ filePath: entry.path })
-      if (result?.success) {
-        importData(result.data, result.filePath)
-        addRecentProject(result.filePath, entry.name)
-      }
-    } catch {}
-  }
-
-  return (
-    <div className="border-b border-gray-200 dark:border-white/10 pb-2">
-      <div className="px-3 py-2">
-        <span className="text-xs font-semibold text-gray-500 dark:text-white/50 uppercase tracking-wider">Recent</span>
-      </div>
-      <div className="space-y-0.5 px-2">
-        {recentProjects.map(entry => (
-          <button
-            key={entry.path}
-            className="w-full text-left px-2 py-1 rounded text-gray-600 dark:text-white/50 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/8 transition-colors"
-            onClick={() => handleOpenSpecific(entry)}
-            title={entry.path}
-          >
-            <div className="text-xs truncate">{entry.name}</div>
-            <div className="text-xs text-gray-400 dark:text-white/25 truncate">{entry.path}</div>
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
 
 export default function Sidebar() {
   const sidebarCollapsed = useStore(s => s.sidebarCollapsed)
@@ -321,9 +282,6 @@ export default function Sidebar() {
 
       {/* Scene panel */}
       <ScenePanel />
-
-      {/* Recent projects — shown when no file is open */}
-      {!currentFilePath && <RecentProjectsPanel />}
 
       {/* Icon library — only in lighting mode */}
       {mode === 'lighting' && (
