@@ -177,28 +177,24 @@ async function renderSceneToDataURL(scene, canvasW = EXPORT_W, canvasH = EXPORT_
       const infoLines = [el.label, el.accessories, el.colorTemperature, el.notes].filter(Boolean)
       if (infoLines.length > 0) {
         const textW = Math.max(el.width, 80)
-        // Position the text beyond the icon's actual rotated footprint.
-        // The text node lives in group-local space and is NOT counter-rotated in
-        // the export, so it appears along the group's local Y axis at local y=textY.
-        // The canvas-space distance from the icon centre to the text origin is
-        // textY * sy, measured along the group's local Y-axis direction.
-        //
-        // The icon's half-extent along that same direction (the rotated projection):
-        //   rotatedExtent = (W/2·sx)·|sin θ| + (H/2·sy)·|cos θ|
-        //
-        // We push the text past that extent plus a comfortable padding, then
-        // convert back to group-local units by dividing by sy.
-        const sx         = el.scaleX || 1
-        const sy         = el.scaleY || 1
-        const θRad       = ((el.rotation || 0) * Math.PI) / 180
-        const rotatedExt = (el.width  / 2 * sx) * Math.abs(Math.sin(θRad))
-                         + (el.height / 2 * sy) * Math.abs(Math.cos(θRad))
-        const worldGap   = Math.max(14, rotatedExt * 0.22)
-        const textY      = (rotatedExt + worldGap) / sy
+        // Same screen-space downward placement as the live canvas.
+        // Invert the group transform to find the local (lx, ly) that maps to a
+        // pure downward screen offset of d from the icon centre:
+        //   (lx, ly) = ( d·sin(θ)/sx , d·cos(θ)/sy )
+        // d = half-diagonal of the scaled icon + padding.
+        // Counter-rotate and counter-scale the text node so it is always upright.
+        const sx       = el.scaleX || 1
+        const sy       = el.scaleY || 1
+        const θ        = ((el.rotation || 0) * Math.PI) / 180
+        const halfDiag = Math.hypot(el.width * sx / 2, el.height * sy / 2)
+        const d        = halfDiag + 14
+        const lx       = d * Math.sin(θ) / sx
+        const ly       = d * Math.cos(θ) / sy
         g.add(new Konva.Text({
           text: infoLines.join('\n'), fontSize: 11, fill: '#1e293b',
-          align: 'center', width: textW, offsetX: textW / 2,
-          y: textY, fontFamily: 'sans-serif', lineHeight: 1.35, listening: false,
+          align: 'center', width: textW, x: lx, y: ly, offsetX: textW / 2,
+          rotation: -(el.rotation || 0), scaleX: 1 / sx, scaleY: 1 / sy,
+          fontFamily: 'sans-serif', lineHeight: 1.35, listening: false,
         }))
       }
       lightLayer.add(g)
