@@ -181,45 +181,48 @@ function LightingElementNode({ element, onSelect, onDragStart, onDragMove, onDra
           element.notes,
         ].filter(Boolean)
         if (lines.length === 0) return null
-        const textW = Math.max(element.width, 80)
-        // Counter-rotate and counter-scale so notes are always upright and fixed size
-        // regardless of the icon's rotation or scale.
+
         const sx = element.scaleX || 1
         const sy = element.scaleY || 1
-        // Compute the text Y offset in group-local space so the text always clears
-        // the icon's actual rotated footprint — not just its unrotated height.
+        const θRad = ((element.rotation || 0) * Math.PI) / 180
+
+        // Goal: notes always appear at a fixed canvas-space offset of (0, d)
+        // below the icon's center — straight down on screen, never rotating.
         //
-        // The text anchor sits at local (0, textY).  After the group's scaleY and
-        // rotation are applied it lands in canvas space at distance:
+        // d uses the circumscribed circle radius (half-diagonal) as the minimum
+        // clearance so notes never overlap the icon at any rotation angle.
+        // Every corner of the icon is at most halfDiag away from the center,
+        // so d >= halfDiag guarantees clearance for all rotations.
+        const halfDiag = Math.sqrt(
+          (element.width  * sx / 2) ** 2 +
+          (element.height * sy / 2) ** 2
+        )
+        const d = halfDiag + 14  // +14 px breathing room in canvas space
+
+        // The Text lives inside the rotating Group, so we must find the
+        // group-local position (lx, ly) that maps to canvas offset (0, d).
         //
-        //   textY * sy   (along the group's local Y-axis direction)
+        // The group's forward transform for a local point (lx, ly):
+        //   canvas_dx = lx·sx·cos(θ) − ly·sy·sin(θ)
+        //   canvas_dy = lx·sx·sin(θ) + ly·sy·cos(θ)
         //
-        // For the text to clear the icon that distance must exceed the icon's
-        // half-extent projected onto that same axis:
-        //
-        //   rotatedExtent = (W/2 · sx)·|sin θ| + (H/2 · sy)·|cos θ|
-        //
-        // This is the standard rectangle-projection formula.  At 0° it collapses
-        // to H/2·sy; at 90° to W/2·sx; at 45° it is larger than either — which
-        // is exactly where the previous formula produced overlap.
-        //
-        // A comfortable padding (≥14 px, or 22 % of extent for large icons) is
-        // added in canvas space, then the whole thing is divided by sy to get back
-        // to group-local coordinates.
-        const θRad          = ((element.rotation || 0) * Math.PI) / 180
-        const rotatedExtent = (element.width  / 2 * sx) * Math.abs(Math.sin(θRad))
-                            + (element.height / 2 * sy) * Math.abs(Math.cos(θRad))
-        const worldGap      = Math.max(14, rotatedExtent * 0.22)
-        const textY         = (rotatedExtent + worldGap) / sy
+        // Setting canvas_dx = 0, canvas_dy = d and solving:
+        //   lx = d·sin(θ) / sx
+        //   ly = d·cos(θ) / sy
+        const lx = d * Math.sin(θRad) / sx
+        const ly = d * Math.cos(θRad) / sy
+
+        const textW = Math.max(element.width, 80)
         return (
           <Text
+            x={lx}
+            y={ly}
             text={lines.join('\n')}
             fontSize={11}
             fill="#1e293b"
             align="center"
             width={textW}
             offsetX={textW / 2}
-            y={textY}
             fontFamily="'Segoe UI', sans-serif"
             lineHeight={1.35}
             listening={false}
