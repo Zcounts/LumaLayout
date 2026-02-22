@@ -186,22 +186,31 @@ function LightingElementNode({ element, onSelect, onDragStart, onDragMove, onDra
         // regardless of the icon's rotation or scale.
         const sx = element.scaleX || 1
         const sy = element.scaleY || 1
-        // Compute a scale-aware vertical gap between the icon's visual bottom and
-        // the text block.  We want the gap to grow with the icon's actual rendered
-        // size so the text never sits on top of the icon regardless of scale.
+        // Compute the text Y offset in group-local space so the text always clears
+        // the icon's actual rotated footprint — not just its unrotated height.
         //
-        // All arithmetic happens in the group's LOCAL coordinate space.  The group
-        // has scaleY=sy applied, so a local distance d becomes d*sy in world space.
+        // The text anchor sits at local (0, textY).  After the group's scaleY and
+        // rotation are applied it lands in canvas space at distance:
         //
-        // Desired world-space gap: at least 8 world-units, or 30 % of the icon's
-        // visual half-height (whichever is larger).
-        //   visualHalfH_world = (element.height / 2) * sy
-        //   worldGap           = max(8, visualHalfH_world * 0.30)
-        //   localGapY          = worldGap / sy   ← undo the group scale so the
-        //                                            rendered gap stays at worldGap
-        const visualHalfH = (element.height / 2) * sy
-        const worldGap    = Math.max(8, visualHalfH * 0.30)
-        const textY       = element.height / 2 + worldGap / sy
+        //   textY * sy   (along the group's local Y-axis direction)
+        //
+        // For the text to clear the icon that distance must exceed the icon's
+        // half-extent projected onto that same axis:
+        //
+        //   rotatedExtent = (W/2 · sx)·|sin θ| + (H/2 · sy)·|cos θ|
+        //
+        // This is the standard rectangle-projection formula.  At 0° it collapses
+        // to H/2·sy; at 90° to W/2·sx; at 45° it is larger than either — which
+        // is exactly where the previous formula produced overlap.
+        //
+        // A comfortable padding (≥14 px, or 22 % of extent for large icons) is
+        // added in canvas space, then the whole thing is divided by sy to get back
+        // to group-local coordinates.
+        const θRad          = ((element.rotation || 0) * Math.PI) / 180
+        const rotatedExtent = (element.width  / 2 * sx) * Math.abs(Math.sin(θRad))
+                            + (element.height / 2 * sy) * Math.abs(Math.cos(θRad))
+        const worldGap      = Math.max(14, rotatedExtent * 0.22)
+        const textY         = (rotatedExtent + worldGap) / sy
         return (
           <Text
             text={lines.join('\n')}
