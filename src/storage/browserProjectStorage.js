@@ -1,3 +1,5 @@
+import { recordDiagnostic } from '../diagnostics/runtimeDiagnostics'
+
 const DB_NAME = 'lumalayout-web'
 const DB_VERSION = 1
 const PROJECT_STORE = 'projects'
@@ -37,18 +39,9 @@ function withStore(mode, worker) {
       return
     }
 
-    tx.oncomplete = () => {
-      resolve(workerResult)
-      db.close()
-    }
-    tx.onerror = () => {
-      reject(tx.error)
-      db.close()
-    }
-    tx.onabort = () => {
-      reject(tx.error)
-      db.close()
-    }
+    tx.oncomplete = () => { resolve(workerResult); db.close() }
+    tx.onerror = () => { reject(tx.error); db.close() }
+    tx.onabort = () => { reject(tx.error); db.close() }
   }))
 }
 
@@ -93,6 +86,7 @@ async function migrateLegacyAutosaveIfNeeded() {
 
   await withStore('readwrite', (store) => store.put(record))
   localStorage.setItem(META_LAST_OPENED_ID, id)
+  recordDiagnostic('idb-legacy-migration-complete', { id })
 }
 
 export function createBrowserProjectStorage() {
@@ -104,83 +98,98 @@ export function createBrowserProjectStorage() {
     migrated = true
   }
 
+  const withDiagnostics = async (eventName, operation, fallback = { success: false }) => {
+    try {
+      await ensureMigration()
+      return await operation()
+    } catch (err) {
+      recordDiagnostic(eventName, { error: err?.message || String(err) }, 'error')
+      return { ...fallback, error: err?.message || String(err) }
+    }
+  }
+
   return {
     runtime: 'web',
     supportsPersistentProjects: true,
 
     async createProject({ name, data }) {
-      await ensureMigration()
-      const timestamp = now()
-      const id = makeId()
-      const record = {
-        id,
-        name: name || parseProjectName(data),
-        data,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-        schemaVersion: 1,
-      }
-      await withStore('readwrite', (store) => store.add(record))
-      localStorage.setItem(META_LAST_OPENED_ID, id)
-      return { success: true, id, record }
+      return withDiagnostics('idb-create-failed', async () => {
+        const timestamp = now()
+        const id = makeId()
+        const record = {
+          id,
+          name: name || parseProjectName(data),
+          data,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+          schemaVersion: 1,
+        }
+        await withStore('readwrite', (store) => store.add(record))
+        localStorage.setItem(META_LAST_OPENED_ID, id)
+        return { success: true, id, record }
+      })
     },
 
     async saveProject({ id, name, data }) {
-      await ensureMigration()
-      const timestamp = now()
+      return withDiagnostics('idb-save-failed', async () => {
+        const timestamp = now()
 
-      if (!id) {
-        return this.createProject({ name, data })
-      }
+        if (!id) {
+          return this.createProject({ name, data })
+        }
 
-      const existing = await withStore('readonly', (store) => requestToPromise(store.get(id)))
-      const record = {
-        id,
-        name: name || parseProjectName(data, existing?.name || 'Untitled Project'),
-        data,
-        createdAt: existing?.createdAt || timestamp,
-        updatedAt: timestamp,
-        schemaVersion: 1,
-      }
+        const existing = await withStore('readonly', (store) => requestToPromise(store.get(id)))
+        const record = {
+          id,
+          name: name || parseProjectName(data, existing?.name || 'Untitled Project'),
+          data,
+          createdAt: existing?.createdAt || timestamp,
+          updatedAt: timestamp,
+          schemaVersion: 1,
+        }
 
-      await withStore('readwrite', (store) => store.put(record))
-      localStorage.setItem(META_LAST_OPENED_ID, id)
-      return { success: true, id, record }
+        await withStore('readwrite', (store) => store.put(record))
+        localStorage.setItem(META_LAST_OPENED_ID, id)
+        return { success: true, id, record }
+      })
     },
 
     async loadProject(id) {
-      await ensureMigration()
-      if (!id) return { success: false }
-      const record = await withStore('readonly', (store) => requestToPromise(store.get(id)))
-      if (!record) return { success: false }
-      localStorage.setItem(META_LAST_OPENED_ID, id)
-      return { success: true, project: record }
+      return withDiagnostics('idb-load-failed', async () => {
+        if (!id) return { success: false }
+        const record = await withStore('readonly', (store) => requestToPromise(store.get(id)))
+        if (!record) return { success: false }
+        localStorage.setItem(META_LAST_OPENED_ID, id)
+        return { success: true, project: record }
+      })
     },
 
     async listProjects(limit = 20) {
-      await ensureMigration()
-      const projects = await withStore('readonly', (store) => requestToPromise(store.getAll()))
-      const sorted = (projects || [])
-        .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
-        .slice(0, limit)
-        .map((item) => ({
-          id: item.id,
-          name: item.name,
-          updatedAt: item.updatedAt,
-          createdAt: item.createdAt,
-        }))
+      return withDiagnostics('idb-list-failed', async () => {
+        const projects = await withStore('readonly', (store) => requestToPromise(store.getAll()))
+        const sorted = (projects || [])
+          .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+          .slice(0, limit)
+          .map((item) => ({
+            id: item.id,
+            name: item.name,
+            updatedAt: item.updatedAt,
+            createdAt: item.createdAt,
+          }))
 
-      return { success: true, projects: sorted }
+        return { success: true, projects: sorted }
+      }, { success: true, projects: [] })
     },
 
     async deleteProject(id) {
-      await ensureMigration()
-      if (!id) return { success: false }
-      await withStore('readwrite', (store) => store.delete(id))
-      if (localStorage.getItem(META_LAST_OPENED_ID) === id) {
-        localStorage.removeItem(META_LAST_OPENED_ID)
-      }
-      return { success: true }
+      return withDiagnostics('idb-delete-failed', async () => {
+        if (!id) return { success: false }
+        await withStore('readwrite', (store) => store.delete(id))
+        if (localStorage.getItem(META_LAST_OPENED_ID) === id) {
+          localStorage.removeItem(META_LAST_OPENED_ID)
+        }
+        return { success: true }
+      })
     },
 
     async getLastOpenedProjectId() {
@@ -189,10 +198,11 @@ export function createBrowserProjectStorage() {
     },
 
     async setLastOpenedProjectId(id) {
-      if (!id) {
-        localStorage.removeItem(META_LAST_OPENED_ID)
-      } else {
-        localStorage.setItem(META_LAST_OPENED_ID, id)
+      try {
+        if (!id) localStorage.removeItem(META_LAST_OPENED_ID)
+        else localStorage.setItem(META_LAST_OPENED_ID, id)
+      } catch (err) {
+        recordDiagnostic('last-opened-id-write-failed', { error: err?.message || String(err) }, 'warn')
       }
     },
   }

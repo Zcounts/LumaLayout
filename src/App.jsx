@@ -10,6 +10,7 @@ import { exportAllScenesPDF, exportAllScenesPNG } from './exportUtils'
 import { createPlatformAdapter, PlatformCommand } from './platform/platformAdapter'
 import { createProjectStorage } from './storage/projectStorage'
 import { allScenesPdfFileName, projectFileName } from './platform/fileNames'
+import { recordDiagnostic } from './diagnostics/runtimeDiagnostics'
 
 export default function App() {
   const platform = useMemo(() => createPlatformAdapter(), [])
@@ -52,6 +53,7 @@ export default function App() {
   const scenesRef = useRef(scenes)
   const isDirtyRef = useRef(isDirty)
   const markSavedRef = useRef(markSaved)
+  const lastPersistedDataRef = useRef(null)
 
   useEffect(() => { exportDataRef.current = exportData }, [exportData])
   useEffect(() => { importDataRef.current = importData }, [importData])
@@ -67,15 +69,22 @@ export default function App() {
 
   const saveWorkingCopy = async () => {
     if (!projectStorage.supportsPersistentProjects) return null
+
     const data = exportDataRef.current()
-    const name = projectNameRef.current || 'Untitled Project'
+    if (data === lastPersistedDataRef.current) return currentStorageProjectIdRef.current
+
     const id = currentStorageProjectIdRef.current
+    const name = projectNameRef.current || 'Untitled Project'
     const result = await projectStorage.saveProject({ id, name, data })
+
     if (result?.success && result.id) {
       setCurrentStorageProjectIdRef.current(result.id)
       await projectStorage.setLastOpenedProjectId(result.id)
+      lastPersistedDataRef.current = data
       return result.id
     }
+
+    recordDiagnostic('working-copy-save-failed', { error: result?.error || 'unknown', hasId: !!id }, 'error')
     return null
   }
 
@@ -97,16 +106,18 @@ export default function App() {
 
     if (result?.success && platform.runtime === 'web') {
       markSavedRef.current()
-      showStatus(
-        result.method === 'file-system-access'
-          ? `Project file saved: ${result.fileName}`
-          : `Project file downloaded: ${result.fileName}`,
-        'success',
-      )
+      showStatus(result.method === 'file-system-access'
+        ? `Project file saved: ${result.fileName}`
+        : `Project file downloaded: ${result.fileName}`, 'success')
+      if (result.fallbackUsed) {
+        recordDiagnostic('project-save-fallback-used', { fileName: result.fileName, method: result.method }, 'warn')
+      }
+      return result
     }
 
     if (!result?.success && !result?.canceled) {
       showStatus('Project file save failed.', 'error')
+      recordDiagnostic('project-file-save-failed', { error: result?.error || 'unknown' }, 'error')
     }
 
     return result
@@ -126,7 +137,10 @@ export default function App() {
 
     const result = await platform.openProject()
     if (!result?.success || !result.data) {
-      if (!result?.canceled) showStatus('Open project failed.', 'error')
+      if (!result?.canceled) {
+        showStatus('Open project failed.', 'error')
+        recordDiagnostic('open-project-failed', { error: result?.error || 'unknown' }, 'error')
+      }
       return
     }
 
@@ -136,17 +150,17 @@ export default function App() {
       const name = result.filePath.split(/[\\/]/).pop().replace(/\.lumalayout$/i, '')
       addRecentProjectRef.current(result.filePath, name)
     }
-    showStatus(
-      result.method === 'file-system-access'
-        ? `Project opened: ${result.fileName}`
-        : 'Project imported from file.',
-      'success',
-    )
+
+    showStatus(result.method === 'file-system-access'
+      ? `Project opened: ${result.fileName}`
+      : 'Project imported from file.', 'success')
   }
 
   const exportAllPdf = async () => {
     const allScenes = scenesRef.current
     if (!allScenes?.length) return
+
+    const t0 = performance.now()
     const base64Data = await exportAllScenesPDF(allScenes)
     const saveResult = await platform.saveExportFile({
       base64Data,
@@ -155,35 +169,39 @@ export default function App() {
     })
 
     if (saveResult?.success) {
-      showStatus(
-        saveResult.method === 'file-system-access'
-          ? `PDF exported: ${saveResult.fileName}`
-          : 'PDF export downloaded.',
-        'success',
-      )
+      showStatus(saveResult.method === 'file-system-access'
+        ? `PDF exported: ${saveResult.fileName}`
+        : 'PDF export downloaded.', 'success')
+      recordDiagnostic('export-pdf-success', { method: saveResult.method, durationMs: Math.round(performance.now() - t0) })
       if (saveResult?.filePath && platform.capabilities.supportsRevealInFolder) {
         await platform.revealInFolder(saveResult.filePath)
       }
     } else if (!saveResult?.canceled) {
       showStatus('PDF export failed.', 'error')
+      recordDiagnostic('export-pdf-failed', { error: saveResult?.error || 'unknown' }, 'error')
     }
   }
 
   const exportAllPng = async () => {
     const allScenes = scenesRef.current
     if (!allScenes?.length) return
+
+    const t0 = performance.now()
     const files = await exportAllScenesPNG(allScenes)
     const saveResult = await platform.saveExportFiles(files)
 
     if (saveResult?.success) {
-      showStatus(
-        saveResult.method === 'directory-picker'
-          ? 'PNG exports saved to selected folder.'
-          : 'PNG exports downloaded.',
-        'success',
-      )
+      showStatus(saveResult.method === 'directory-picker'
+        ? 'PNG exports saved to selected folder.'
+        : 'PNG exports downloaded.', 'success')
+      recordDiagnostic('export-png-success', {
+        method: saveResult.method,
+        count: files.length,
+        durationMs: Math.round(performance.now() - t0),
+      })
     } else if (!saveResult?.canceled) {
       showStatus('PNG export failed.', 'error')
+      recordDiagnostic('export-png-failed', { error: saveResult?.error || 'unknown' }, 'error')
     }
   }
 
@@ -203,9 +221,14 @@ export default function App() {
       if (!loaded?.success || !loaded.project || cancelled) return
       importDataRef.current(loaded.project.data, null)
       setCurrentStorageProjectIdRef.current(loaded.project.id)
+      lastPersistedDataRef.current = loaded.project.data
       showStatus('Reopened browser-saved project.', 'info')
     }
-    restore().catch(() => {})
+
+    restore().catch((err) => {
+      recordDiagnostic('restore-browser-project-failed', { error: err?.message || String(err) }, 'error')
+    })
+
     return () => { cancelled = true }
   }, [projectStorage])
 
@@ -213,7 +236,9 @@ export default function App() {
     const interval = setInterval(() => {
       const data = exportDataRef.current()
       platform.autoSave(data)
-      saveWorkingCopy().catch(() => {})
+      saveWorkingCopy().catch((err) => {
+        recordDiagnostic('autosave-working-copy-failed', { error: err?.message || String(err) }, 'error')
+      })
     }, 60000)
     return () => clearInterval(interval)
   }, [platform, projectStorage])
@@ -242,11 +267,17 @@ export default function App() {
     })
 
     const removeExportAllPDF = platform.onCommand(PlatformCommand.EXPORT_ALL_PDF, async () => {
-      try { await exportAllPdf() } catch { showStatus('PDF export failed.', 'error') }
+      try { await exportAllPdf() } catch (err) {
+        showStatus('PDF export failed.', 'error')
+        recordDiagnostic('export-pdf-command-failed', { error: err?.message || String(err) }, 'error')
+      }
     })
 
     const removeExportAllPNG = platform.onCommand(PlatformCommand.EXPORT_ALL_PNG, async () => {
-      try { await exportAllPng() } catch { showStatus('PNG export failed.', 'error') }
+      try { await exportAllPng() } catch (err) {
+        showStatus('PNG export failed.', 'error')
+        recordDiagnostic('export-png-command-failed', { error: err?.message || String(err) }, 'error')
+      }
     })
 
     return () => {
@@ -254,14 +285,12 @@ export default function App() {
     }
   }, [undo, redo, platform, projectStorage])
 
-  // Browser keyboard shortcuts when there are no native menus
   useEffect(() => {
     if (platform.capabilities.hasNativeMenus) return
 
     const onKeyDown = (event) => {
       const meta = event.metaKey || event.ctrlKey
       if (!meta) return
-
       const key = event.key.toLowerCase()
 
       if (key === 's' && !event.shiftKey) {
@@ -269,28 +298,16 @@ export default function App() {
         saveWorkingCopy().then(() => {
           markSavedRef.current()
           showStatus('Saved in browser.', 'success')
-        }).catch(() => showStatus('Browser save failed.', 'error'))
+        }).catch((err) => {
+          showStatus('Browser save failed.', 'error')
+          recordDiagnostic('shortcut-save-failed', { error: err?.message || String(err) }, 'error')
+        })
       }
 
-      if (key === 's' && event.shiftKey) {
-        event.preventDefault()
-        downloadProjectFile({ forceSaveAs: true })
-      }
-
-      if (key === 'o') {
-        event.preventDefault()
-        openProjectFile()
-      }
-
-      if (key === 'e' && event.shiftKey) {
-        event.preventDefault()
-        exportAllPdf().catch(() => showStatus('PDF export failed.', 'error'))
-      }
-
-      if (key === 'p' && event.shiftKey) {
-        event.preventDefault()
-        exportAllPng().catch(() => showStatus('PNG export failed.', 'error'))
-      }
+      if (key === 's' && event.shiftKey) { event.preventDefault(); downloadProjectFile({ forceSaveAs: true }) }
+      if (key === 'o') { event.preventDefault(); openProjectFile() }
+      if (key === 'e' && event.shiftKey) { event.preventDefault(); exportAllPdf().catch(() => showStatus('PDF export failed.', 'error')) }
+      if (key === 'p' && event.shiftKey) { event.preventDefault(); exportAllPng().catch(() => showStatus('PNG export failed.', 'error')) }
     }
 
     window.addEventListener('keydown', onKeyDown)
@@ -309,6 +326,7 @@ export default function App() {
   const handleNewProjectConfirm = (name) => {
     newProject(name)
     setCurrentStorageProjectIdRef.current(null)
+    lastPersistedDataRef.current = null
     setShowNewProjectDialog(false)
   }
 
@@ -321,38 +339,28 @@ export default function App() {
   return (
     <div className={`flex flex-col h-screen w-screen overflow-hidden ${darkMode ? 'dark' : ''}`}>
       <Toolbar />
-
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
-
         <div className="flex-1 flex flex-col overflow-hidden relative">
           <div className={`absolute top-2 left-1/2 -translate-x-1/2 z-10 px-3 py-1 rounded-full text-xs font-semibold tracking-wider pointer-events-none ${
             mode === 'blueprint' ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
           }`}>
             {mode === 'blueprint' ? '⬡ Blueprint Mode' : '⚡ Lighting Mode'}
           </div>
-
           <Canvas />
-
           <div className="absolute bottom-2 left-3 text-xs font-mono pointer-events-none select-none" style={{ color: 'rgba(100,100,100,0.55)', zIndex: 10 }}>
             v{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.0'} ©fairlyOdd L.L.C. {new Date().getFullYear()}
           </div>
-
           {status && (
-            <div className={`absolute right-3 bottom-3 px-3 py-2 rounded-md text-xs shadow-md z-20 ${
-              status.kind === 'error' ? 'bg-red-600 text-white' : status.kind === 'success' ? 'bg-green-600 text-white' : 'bg-slate-700 text-white'
-            }`}>
+            <div className={`absolute right-3 bottom-3 px-3 py-2 rounded-md text-xs shadow-md z-20 ${status.kind === 'error' ? 'bg-red-600 text-white' : status.kind === 'success' ? 'bg-green-600 text-white' : 'bg-slate-700 text-white'}`}>
               {status.text}
             </div>
           )}
         </div>
       </div>
-
       <ContextMenu />
       <LabelEditor />
-
       {showNewProjectDialog && <NewProjectDialog onConfirm={handleNewProjectConfirm} onCancel={() => setShowNewProjectDialog(false)} />}
-
       {showCloseDialog && (
         <div className="close-dialog-overlay">
           <div className="close-dialog">

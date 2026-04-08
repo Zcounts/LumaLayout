@@ -1,3 +1,5 @@
+import { recordDiagnostic } from '../diagnostics/runtimeDiagnostics'
+
 const b64ToBlob = (base64Data, mimeType = 'application/octet-stream') => {
   const bytes = atob(base64Data)
   const arr = new Uint8Array(bytes.length)
@@ -30,7 +32,7 @@ const pickFileTextFallback = (accept = '.lumalayout,application/json') => new Pr
       fileName: file.name,
       method: 'file-input',
     })
-    reader.onerror = () => resolve({ success: false })
+    reader.onerror = () => resolve({ success: false, error: 'File read failed' })
     reader.readAsText(file)
   }
   input.click()
@@ -62,6 +64,8 @@ export function createWebAdapter() {
     typeof window !== 'undefined' &&
     typeof window.showDirectoryPicker === 'function'
 
+  recordDiagnostic('platform-web-capabilities', { supportsFsAccess, supportsDirectoryPicker })
+
   return {
     runtime: 'web',
     capabilities: {
@@ -74,17 +78,9 @@ export function createWebAdapter() {
       supportsDirectoryPicker,
     },
 
-    onCommand() {
-      return () => {}
-    },
-
-    onBeforeClose() {
-      return () => {}
-    },
-
-    async requestForceClose() {
-      return
-    },
+    onCommand() { return () => {} },
+    onBeforeClose() { return () => {} },
+    async requestForceClose() { return },
 
     async saveProject({ data, suggestedName = 'project.lumalayout', forceSaveAs = false }) {
       if (supportsFsAccess) {
@@ -98,27 +94,19 @@ export function createWebAdapter() {
               }],
             })
           }
-
           const writable = await createWritable(projectFileHandle)
           await writable.writeText(data)
-          return {
-            success: true,
-            fileName: projectFileHandle.name,
-            method: 'file-system-access',
-          }
+          return { success: true, fileName: projectFileHandle.name, method: 'file-system-access' }
         } catch (err) {
           if (err?.name === 'AbortError') return { success: false, canceled: true }
+          recordDiagnostic('project-save-failed', { method: 'file-system-access', error: err.message }, 'error')
           return { success: false, error: err.message }
         }
       }
 
       downloadBlob(new Blob([data], { type: 'application/json' }), suggestedName)
-      return {
-        success: true,
-        fileName: suggestedName,
-        method: 'download',
-        fallbackUsed: true,
-      }
+      recordDiagnostic('project-save-fallback-download', { suggestedName }, 'warn')
+      return { success: true, fileName: suggestedName, method: 'download', fallbackUsed: true }
     },
 
     async openProject() {
@@ -132,34 +120,29 @@ export function createWebAdapter() {
             excludeAcceptAllOption: false,
             multiple: false,
           })
-
           if (!fileHandle) return { success: false, canceled: true }
           const file = await fileHandle.getFile()
           projectFileHandle = fileHandle
-          return {
-            success: true,
-            fileName: file.name,
-            data: await file.text(),
-            method: 'file-system-access',
-          }
+          return { success: true, fileName: file.name, data: await file.text(), method: 'file-system-access' }
         } catch (err) {
           if (err?.name === 'AbortError') return { success: false, canceled: true }
+          recordDiagnostic('project-open-failed', { method: 'file-system-access', error: err.message }, 'error')
           return { success: false, error: err.message }
         }
       }
 
+      recordDiagnostic('project-open-fallback-input', {}, 'warn')
       return pickFileTextFallback('.lumalayout,application/json')
     },
 
-    async readProject() {
-      return { success: false }
-    },
+    async readProject() { return { success: false } },
 
     async autoSave(data) {
       try {
         localStorage.setItem('lumalayout-autosave-web', data)
         return { success: true }
       } catch {
+        recordDiagnostic('autosave-localstorage-failed', {}, 'warn')
         return { success: false }
       }
     },
@@ -185,11 +168,13 @@ export function createWebAdapter() {
           return { success: true, fileName: handle.name, method: 'file-system-access' }
         } catch (err) {
           if (err?.name === 'AbortError') return { success: false, canceled: true }
+          recordDiagnostic('export-file-failed', { method: 'file-system-access', error: err.message }, 'error')
           return { success: false, error: err.message }
         }
       }
 
       downloadBlob(blob, defaultName)
+      recordDiagnostic('export-file-fallback-download', { defaultName }, 'warn')
       return { success: true, fileName: defaultName, method: 'download', fallbackUsed: true }
     },
 
@@ -205,18 +190,18 @@ export function createWebAdapter() {
           return { success: true, method: 'directory-picker' }
         } catch (err) {
           if (err?.name === 'AbortError') return { success: false, canceled: true }
+          recordDiagnostic('export-png-batch-failed', { method: 'directory-picker', error: err.message }, 'error')
           return { success: false, error: err.message }
         }
       }
 
+      recordDiagnostic('export-png-batch-fallback-download', { count: (files || []).length }, 'warn')
       for (const file of files || []) {
         downloadBlob(b64ToBlob(file.base64Data, 'image/png'), file.name)
       }
       return { success: true, method: 'download', fallbackUsed: true }
     },
 
-    async revealInFolder() {
-      return { success: false, unsupported: true }
-    },
+    async revealInFolder() { return { success: false, unsupported: true } },
   }
 }
