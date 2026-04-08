@@ -8,9 +8,11 @@ import LabelEditor from './components/LabelEditor'
 import NewProjectDialog from './components/NewProjectDialog'
 import { exportAllScenesPDF, exportAllScenesPNG } from './exportUtils'
 import { createPlatformAdapter, PlatformCommand } from './platform/platformAdapter'
+import { createProjectStorage } from './storage/projectStorage'
 
 export default function App() {
   const platform = useMemo(() => createPlatformAdapter(), [])
+  const projectStorage = useMemo(() => createProjectStorage(platform), [platform])
 
   const darkMode = useStore(s => s.darkMode)
   const undo = useStore(s => s.undo)
@@ -20,7 +22,9 @@ export default function App() {
   const mode = useStore(s => s.mode)
   const projectName = useStore(s => s.projectName)
   const currentFilePath = useStore(s => s.currentFilePath)
+  const currentStorageProjectId = useStore(s => s.currentStorageProjectId)
   const setCurrentFilePath = useStore(s => s.setCurrentFilePath)
+  const setCurrentStorageProjectId = useStore(s => s.setCurrentStorageProjectId)
   const addRecentProject = useStore(s => s.addRecentProject)
   const newProject = useStore(s => s.newProject)
   const scenes = useStore(s => s.scenes)
@@ -34,8 +38,10 @@ export default function App() {
   const exportDataRef = useRef(exportData)
   const importDataRef = useRef(importData)
   const currentFilePathRef = useRef(currentFilePath)
+  const currentStorageProjectIdRef = useRef(currentStorageProjectId)
   const projectNameRef = useRef(projectName)
   const setCurrentFilePathRef = useRef(setCurrentFilePath)
+  const setCurrentStorageProjectIdRef = useRef(setCurrentStorageProjectId)
   const addRecentProjectRef = useRef(addRecentProject)
   const scenesRef = useRef(scenes)
   const isDirtyRef = useRef(isDirty)
@@ -44,45 +50,85 @@ export default function App() {
   useEffect(() => { exportDataRef.current = exportData }, [exportData])
   useEffect(() => { importDataRef.current = importData }, [importData])
   useEffect(() => { currentFilePathRef.current = currentFilePath }, [currentFilePath])
+  useEffect(() => { currentStorageProjectIdRef.current = currentStorageProjectId }, [currentStorageProjectId])
   useEffect(() => { projectNameRef.current = projectName }, [projectName])
   useEffect(() => { setCurrentFilePathRef.current = setCurrentFilePath }, [setCurrentFilePath])
+  useEffect(() => { setCurrentStorageProjectIdRef.current = setCurrentStorageProjectId }, [setCurrentStorageProjectId])
   useEffect(() => { addRecentProjectRef.current = addRecentProject }, [addRecentProject])
   useEffect(() => { scenesRef.current = scenes }, [scenes])
   useEffect(() => { isDirtyRef.current = isDirty }, [isDirty])
   useEffect(() => { markSavedRef.current = markSaved }, [markSaved])
 
-  const syncSavedPath = async (result) => {
+  const saveWorkingCopy = async () => {
+    if (!projectStorage.supportsPersistentProjects) return null
+    const data = exportDataRef.current()
+    const name = projectNameRef.current || 'Untitled Project'
+    const id = currentStorageProjectIdRef.current
+    const result = await projectStorage.saveProject({ id, name, data })
+    if (result?.success && result.id) {
+      setCurrentStorageProjectIdRef.current(result.id)
+      await projectStorage.setLastOpenedProjectId(result.id)
+      return result.id
+    }
+    return null
+  }
+
+  const syncDesktopSavedPath = async (result) => {
     if (!result?.success || !result.filePath) return
     setCurrentFilePathRef.current(result.filePath)
+    setCurrentStorageProjectIdRef.current(null)
     markSavedRef.current()
     const name = result.filePath.split(/[\\/]/).pop().replace(/\.lumalayout$/i, '')
     addRecentProjectRef.current(result.filePath, name)
   }
 
-  const saveProject = async ({ forceSaveAs = false } = {}) => {
+  const saveProjectToFile = async ({ forceSaveAs = false } = {}) => {
     const data = exportDataRef.current()
     const filePath = forceSaveAs ? null : currentFilePathRef.current
     const result = await platform.saveProject({ filePath, data })
-    await syncSavedPath(result)
+    await syncDesktopSavedPath(result)
     return result
   }
 
-  // Update window title
   useEffect(() => {
     const unsaved = currentFilePath ? '' : ' •'
     document.title = `${projectName}${unsaved} — LumaLayout`
   }, [projectName, currentFilePath])
+
+  // Restore the latest browser-local project on first mount
+  useEffect(() => {
+    if (!projectStorage.supportsPersistentProjects) return
+
+    let cancelled = false
+
+    const restore = async () => {
+      const lastId = await projectStorage.getLastOpenedProjectId()
+      if (!lastId) return
+      const loaded = await projectStorage.loadProject(lastId)
+      if (!loaded?.success || !loaded.project || cancelled) return
+      importDataRef.current(loaded.project.data, null)
+      setCurrentStorageProjectIdRef.current(loaded.project.id)
+    }
+
+    restore().catch((err) => {
+      console.warn('Failed to restore browser-local project:', err)
+    })
+
+    return () => { cancelled = true }
+  }, [projectStorage])
 
   // Auto-save every 60 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       const data = exportDataRef.current()
       platform.autoSave(data)
+      saveWorkingCopy().catch((err) => {
+        console.warn('Browser-local save failed:', err)
+      })
     }, 60000)
     return () => clearInterval(interval)
-  }, [platform])
+  }, [platform, projectStorage])
 
-  // Wire up platform command events (once on mount)
   useEffect(() => {
     const removeUndo = platform.onCommand(PlatformCommand.UNDO, () => undo())
     const removeRedo = platform.onCommand(PlatformCommand.REDO, () => redo())
@@ -92,16 +138,25 @@ export default function App() {
     })
 
     const removeSave = platform.onCommand(PlatformCommand.SAVE_PROJECT, async () => {
-      await saveProject()
+      const result = await saveProjectToFile()
+      if (!result?.success && projectStorage.supportsPersistentProjects) {
+        await saveWorkingCopy()
+        markSavedRef.current()
+      }
     })
 
     const removeSaveAs = platform.onCommand(PlatformCommand.SAVE_PROJECT_AS, async () => {
-      await saveProject({ forceSaveAs: true })
+      const result = await saveProjectToFile({ forceSaveAs: true })
+      if (!result?.success && projectStorage.supportsPersistentProjects) {
+        await saveWorkingCopy()
+        markSavedRef.current()
+      }
     })
 
     const removeOpenFile = platform.onCommand(PlatformCommand.OPEN_PROJECT, async (payload) => {
       if (payload?.data) {
         importDataRef.current(payload.data, payload.path || null)
+        setCurrentStorageProjectIdRef.current(null)
         if (payload.path) {
           const name = payload.path.split(/[\\/]/).pop().replace(/\.lumalayout$/i, '')
           addRecentProjectRef.current(payload.path, name)
@@ -112,6 +167,7 @@ export default function App() {
       const result = await platform.openProject()
       if (!result?.success || !result.data) return
       importDataRef.current(result.data, result.filePath || null)
+      setCurrentStorageProjectIdRef.current(null)
       if (result.filePath) {
         const name = result.filePath.split(/[\\/]/).pop().replace(/\.lumalayout$/i, '')
         addRecentProjectRef.current(result.filePath, name)
@@ -158,9 +214,8 @@ export default function App() {
       removeExportAllPDF?.()
       removeExportAllPNG?.()
     }
-  }, [undo, redo, platform])
+  }, [undo, redo, platform, projectStorage])
 
-  // Intercept window close — prompt when there are unsaved changes
   useEffect(() => {
     if (!platform.capabilities.supportsAppCloseControl) return
     const remove = platform.onBeforeClose(() => {
@@ -175,16 +230,21 @@ export default function App() {
 
   const handleNewProjectConfirm = (name) => {
     newProject(name)
+    setCurrentStorageProjectIdRef.current(null)
     setShowNewProjectDialog(false)
   }
 
-  // Save then close (used by the close dialog)
   const handleSaveAndClose = async () => {
-    const result = await saveProject()
-    if (result?.success) {
+    const fileResult = await saveProjectToFile()
+    if (!fileResult?.success && projectStorage.supportsPersistentProjects) {
+      await saveWorkingCopy()
+      markSavedRef.current()
+    }
+
+    if (fileResult?.success || projectStorage.supportsPersistentProjects) {
       await platform.requestForceClose()
     }
-    // If the save dialog was cancelled, keep the app open
+
     setShowCloseDialog(false)
   }
 
