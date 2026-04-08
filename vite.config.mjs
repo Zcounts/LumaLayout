@@ -9,10 +9,11 @@ const pkg = require('./package.json')
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const enableSourcemap = env.VITE_SOURCEMAP === 'true'
+  const base = env.VITE_BASE_PATH || '/'
 
   return {
     plugins: [react()],
-    base: './',
+    base,
     define: {
       __APP_VERSION__: JSON.stringify(pkg.version),
     },
