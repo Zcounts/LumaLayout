@@ -78,6 +78,7 @@ const initialState = {
   // Project metadata
   projectName: 'Untitled Project',
   currentFilePath: null,
+  currentStorageProjectId: null,
   recentProjects: loadRecentProjects(), // [{path, name, date}]
 
   // Canvas viewport
@@ -159,6 +160,7 @@ export const useStore = create((set, get) => ({
   // ---- Project ----
   setProjectName: (name) => set({ projectName: name }),
   setCurrentFilePath: (path) => set({ currentFilePath: path }),
+  setCurrentStorageProjectId: (id) => set({ currentStorageProjectId: id }),
 
   addRecentProject: (path, name) => set(s => {
     const entry = { path, name, date: Date.now() }
@@ -173,6 +175,7 @@ export const useStore = create((set, get) => ({
     set({
       projectName: name,
       currentFilePath: null,
+      currentStorageProjectId: null,
       scenes: [scene],
       currentSceneId: scene.id,
       selectedIds: [],
@@ -620,6 +623,7 @@ export const useStore = create((set, get) => ({
       set({
         projectName: data.projectName || 'Untitled Project',
         currentFilePath: filePath || null,
+        currentStorageProjectId: null,
         scenes: data.scenes || [makeScene()],
         currentSceneId: data.currentSceneId || data.scenes?.[0]?.id,
         selectedIds: [],
