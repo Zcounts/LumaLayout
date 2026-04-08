@@ -16,18 +16,19 @@ const downloadBlob = (blob, filename) => {
   setTimeout(() => URL.revokeObjectURL(url), 0)
 }
 
-const pickFileText = (accept = '.lumalayout,application/json') => new Promise((resolve) => {
+const pickFileTextFallback = (accept = '.lumalayout,application/json') => new Promise((resolve) => {
   const input = document.createElement('input')
   input.type = 'file'
   input.accept = accept
   input.onchange = () => {
     const file = input.files?.[0]
-    if (!file) return resolve({ success: false })
+    if (!file) return resolve({ success: false, canceled: true })
     const reader = new FileReader()
     reader.onload = (event) => resolve({
       success: true,
       data: String(event.target?.result || ''),
       fileName: file.name,
+      method: 'file-input',
     })
     reader.onerror = () => resolve({ success: false })
     reader.readAsText(file)
@@ -35,7 +36,32 @@ const pickFileText = (accept = '.lumalayout,application/json') => new Promise((r
   input.click()
 })
 
+const createWritable = async (fileHandle) => {
+  const writable = await fileHandle.createWritable()
+  return {
+    async writeText(content) {
+      await writable.write(content)
+      await writable.close()
+    },
+    async writeBlob(blob) {
+      await writable.write(blob)
+      await writable.close()
+    },
+  }
+}
+
 export function createWebAdapter() {
+  let projectFileHandle = null
+
+  const supportsFsAccess =
+    typeof window !== 'undefined' &&
+    typeof window.showOpenFilePicker === 'function' &&
+    typeof window.showSaveFilePicker === 'function'
+
+  const supportsDirectoryPicker =
+    typeof window !== 'undefined' &&
+    typeof window.showDirectoryPicker === 'function'
+
   return {
     runtime: 'web',
     capabilities: {
@@ -44,6 +70,8 @@ export function createWebAdapter() {
       supportsAutosave: true,
       supportsAppCloseControl: false,
       supportsRevealInFolder: false,
+      supportsFsAccess,
+      supportsDirectoryPicker,
     },
 
     onCommand() {
@@ -58,14 +86,69 @@ export function createWebAdapter() {
       return
     },
 
-    async saveProject({ data }) {
-      const fileName = `lumalayout_${Date.now()}.lumalayout`
-      downloadBlob(new Blob([data], { type: 'application/json' }), fileName)
-      return { success: true, filePath: null }
+    async saveProject({ data, suggestedName = 'project.lumalayout', forceSaveAs = false }) {
+      if (supportsFsAccess) {
+        try {
+          if (!projectFileHandle || forceSaveAs) {
+            projectFileHandle = await window.showSaveFilePicker({
+              suggestedName,
+              types: [{
+                description: 'LumaLayout Project',
+                accept: { 'application/json': ['.lumalayout', '.json'] },
+              }],
+            })
+          }
+
+          const writable = await createWritable(projectFileHandle)
+          await writable.writeText(data)
+          return {
+            success: true,
+            fileName: projectFileHandle.name,
+            method: 'file-system-access',
+          }
+        } catch (err) {
+          if (err?.name === 'AbortError') return { success: false, canceled: true }
+          return { success: false, error: err.message }
+        }
+      }
+
+      downloadBlob(new Blob([data], { type: 'application/json' }), suggestedName)
+      return {
+        success: true,
+        fileName: suggestedName,
+        method: 'download',
+        fallbackUsed: true,
+      }
     },
 
     async openProject() {
-      return pickFileText('.lumalayout,application/json')
+      if (supportsFsAccess) {
+        try {
+          const [fileHandle] = await window.showOpenFilePicker({
+            types: [{
+              description: 'LumaLayout Project',
+              accept: { 'application/json': ['.lumalayout', '.json'] },
+            }],
+            excludeAcceptAllOption: false,
+            multiple: false,
+          })
+
+          if (!fileHandle) return { success: false, canceled: true }
+          const file = await fileHandle.getFile()
+          projectFileHandle = fileHandle
+          return {
+            success: true,
+            fileName: file.name,
+            data: await file.text(),
+            method: 'file-system-access',
+          }
+        } catch (err) {
+          if (err?.name === 'AbortError') return { success: false, canceled: true }
+          return { success: false, error: err.message }
+        }
+      }
+
+      return pickFileTextFallback('.lumalayout,application/json')
     },
 
     async readProject() {
@@ -84,19 +167,56 @@ export function createWebAdapter() {
     async saveExportFile({ base64Data, defaultName, filters }) {
       const ext = filters?.[0]?.extensions?.[0] || 'bin'
       const mime = ext === 'pdf' ? 'application/pdf' : 'image/png'
-      downloadBlob(b64ToBlob(base64Data, mime), defaultName)
-      return { success: true }
+      const blob = b64ToBlob(base64Data, mime)
+
+      if (supportsFsAccess) {
+        try {
+          const handle = await window.showSaveFilePicker({
+            suggestedName: defaultName,
+            types: filters?.length
+              ? filters.map((f) => ({
+                  description: f.name,
+                  accept: { [mime]: f.extensions.map((item) => `.${item}`) },
+                }))
+              : undefined,
+          })
+          const writable = await createWritable(handle)
+          await writable.writeBlob(blob)
+          return { success: true, fileName: handle.name, method: 'file-system-access' }
+        } catch (err) {
+          if (err?.name === 'AbortError') return { success: false, canceled: true }
+          return { success: false, error: err.message }
+        }
+      }
+
+      downloadBlob(blob, defaultName)
+      return { success: true, fileName: defaultName, method: 'download', fallbackUsed: true }
     },
 
     async saveExportFiles(files) {
+      if (supportsDirectoryPicker) {
+        try {
+          const directoryHandle = await window.showDirectoryPicker()
+          for (const file of files || []) {
+            const child = await directoryHandle.getFileHandle(file.name, { create: true })
+            const writable = await createWritable(child)
+            await writable.writeBlob(b64ToBlob(file.base64Data, 'image/png'))
+          }
+          return { success: true, method: 'directory-picker' }
+        } catch (err) {
+          if (err?.name === 'AbortError') return { success: false, canceled: true }
+          return { success: false, error: err.message }
+        }
+      }
+
       for (const file of files || []) {
         downloadBlob(b64ToBlob(file.base64Data, 'image/png'), file.name)
       }
-      return { success: true }
+      return { success: true, method: 'download', fallbackUsed: true }
     },
 
     async revealInFolder() {
-      return { success: false }
+      return { success: false, unsupported: true }
     },
   }
 }
