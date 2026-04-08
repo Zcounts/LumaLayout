@@ -184,6 +184,7 @@ export default function Sidebar() {
   const projectName = useStore(s => s.projectName)
   const setProjectName = useStore(s => s.setProjectName)
   const currentFilePath = useStore(s => s.currentFilePath)
+  const currentStorageProjectId = useStore(s => s.currentStorageProjectId)
   const [openCategories, setOpenCategories] = useState({ 'Light Sources': true })
 
   // Editable project name
@@ -276,7 +277,11 @@ export default function Sidebar() {
           </div>
         )}
         <div className="text-xs text-gray-400 dark:text-white/30 truncate mt-0.5">
-          {currentFilePath ? currentFilePath.split(/[\\/]/).pop() : 'Unsaved'}
+          {currentFilePath
+            ? currentFilePath.split(/[\\/]/).pop()
+            : currentStorageProjectId
+              ? 'Saved in browser'
+              : 'Unsaved'}
         </div>
       </div>
 
