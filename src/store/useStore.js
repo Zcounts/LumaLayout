@@ -438,6 +438,8 @@ export const useStore = create((set, get) => ({
   clearSelection: () => set({ selectedIds: [] }),
 
   // ---- Blueprint shape selection ----
+  setSelectedShapeIds: (ids) => set({ selectedShapeIds: ids }),
+
   selectShape: (id, multi = false) =>
     set(s => {
       if (multi) {

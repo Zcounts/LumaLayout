@@ -1,5 +1,13 @@
 # LumaLayout — Lighting Diagram Desktop App
 
+## Web deployment (manual FTP)
+
+- Build the web bundle with `npm run build:web`.
+- For subdomain deploys (example `luma.shot-scribe.com`), upload the **contents of `dist/`** into that subdomain's document root (often `public_html/luma/` or `luma.shot-scribe.com/`), not the `dist` folder itself.
+- The default Vite base is `/` for subdomain root hosting, so built bundles load from `/assets/...`.
+- If you ever deploy under a nested path, set `VITE_BASE_PATH` before build (example: `VITE_BASE_PATH=/my/subpath/ npm run build:web`).
+- Ensure `index.html` and the `assets/` folder are side-by-side in the deployed document root.
+
 ## Full Project Specification
 
 Build a Windows 11 desktop application using Electron + React for creating 
