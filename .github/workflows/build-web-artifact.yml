@@ -33,12 +33,12 @@ jobs:
       - name: Build web app
         env:
           VITE_SOURCEMAP: 'false'
-        run: npx vite build
+        run: npm run build:web
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: lumalayout-web-build
-          path: dist
+          path: dist/*
           if-no-files-found: error
           retention-days: 14
