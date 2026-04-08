@@ -26,6 +26,7 @@ export const makeElement = (overrides = {}) => ({
   accessories: '',
   colorTemperature: '',
   notes: '',
+  labelDistance: 7,
   zIndex: 0,
   groupId: null,
   ...overrides,
@@ -593,9 +594,13 @@ export const useStore = create((set, get) => ({
       accessories: el?.accessories || '',
       colorTemperature: el?.colorTemperature || '',
       notes: el?.notes || '',
+      labelDistance: el?.labelDistance ?? 7,
     },
   }),
   hideLabelEditor: () => set({ labelEditor: null }),
+  setLabelEditorDistance: (v) => set(s => ({
+    labelEditor: s.labelEditor ? { ...s.labelEditor, labelDistance: v } : null,
+  })),
   markSaved: () => set({ isDirty: false }),
 
   // ---- Save / Load ----

@@ -197,7 +197,7 @@ function LightingElementNode({ element, onSelect, onDragStart, onDragMove, onDra
           (element.width  * sx / 2) ** 2 +
           (element.height * sy / 2) ** 2
         )
-        const d = halfDiag + 14  // +14 px breathing room in canvas space
+        const d = halfDiag + (element.labelDistance ?? 7)  // px breathing room in canvas space
 
         // The Text lives inside the rotating Group, so we must find the
         // group-local position (lx, ly) that maps to canvas offset (0, d).
@@ -271,6 +271,7 @@ export default function Canvas() {
   const showContextMenu = useStore(s => s.showContextMenu)
   const hideContextMenu = useStore(s => s.hideContextMenu)
   const showLabelEditor = useStore(s => s.showLabelEditor)
+  const labelEditor = useStore(s => s.labelEditor)
   const blueprintTool = useStore(s => s.blueprintTool)
   const setBlueprintTool = useStore(s => s.setBlueprintTool)
   const selectedShapeIds = useStore(s => s.selectedShapeIds)
@@ -820,11 +821,15 @@ export default function Canvas() {
 
         {/* Lighting elements layer */}
         <Layer ref={layerRef} listening={mode === 'lighting'}>
-          {sortedElements.map(element => (
-            mode === 'lighting' ? (
+          {sortedElements.map(element => {
+            // Inject live labelDistance from the editor panel for real-time preview
+            const el = labelEditor?.id === element.id
+              ? { ...element, labelDistance: labelEditor.labelDistance ?? element.labelDistance ?? 7 }
+              : element
+            return mode === 'lighting' ? (
               <LightingElementNode
-                key={element.id}
-                element={element}
+                key={el.id}
+                element={el}
                 onSelect={handleElementSelect}
                 onDragStart={handleDragStart}
                 onDragMove={handleDragMove}
@@ -839,7 +844,7 @@ export default function Canvas() {
                 <ElementImage element={element} />
               </Group>
             )
-          ))}
+          })}
 
           {/* Transformer for resize/rotate/move in Lighting Mode.
               Default: proportional scaling (corner anchors only).
