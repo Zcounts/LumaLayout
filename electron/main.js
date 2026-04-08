@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain, dialog } = require('electron')
+const { app, BrowserWindow, Menu, ipcMain, dialog, shell } = require('electron')
 const path = require('path')
 const fs = require('fs')
 
@@ -282,6 +282,17 @@ ipcMain.handle('save-export-all-png', async (event, { files }) => {
 ipcMain.handle('force-close-app', () => {
   const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
   if (win) win.destroy()
+})
+
+// Reveal an exported file in the OS file manager
+ipcMain.handle('reveal-in-folder', async (event, { filePath }) => {
+  try {
+    if (!filePath) return { success: false }
+    shell.showItemInFolder(filePath)
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: err.message }
+  }
 })
 
 app.whenReady().then(createWindow)
