@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from './store/useStore'
+import AppMenuBar from './components/AppMenuBar'
 import Toolbar from './components/Toolbar'
 import Sidebar from './components/Sidebar'
 import Canvas from './components/Canvas'
@@ -22,6 +23,20 @@ export default function App() {
   const importData = useStore(s => s.importData)
   const exportData = useStore(s => s.exportData)
   const mode = useStore(s => s.mode)
+  const setSelectedIds = useStore(s => s.setSelectedIds)
+  const setSelectedShapeIds = useStore(s => s.setSelectedShapeIds)
+  const deleteSelectedElements = useStore(s => s.deleteSelectedElements)
+  const deleteSelectedShapes = useStore(s => s.deleteSelectedShapes)
+  const selectedIds = useStore(s => s.selectedIds)
+  const selectedShapeIds = useStore(s => s.selectedShapeIds)
+  const historyIndex = useStore(s => s.historyIndex)
+  const history = useStore(s => s.history)
+  const stageScale = useStore(s => s.stageScale)
+  const stageX = useStore(s => s.stageX)
+  const stageY = useStore(s => s.stageY)
+  const setViewport = useStore(s => s.setViewport)
+  const toggleShowGrid = useStore(s => s.toggleShowGrid)
+  const toggleSidebar = useStore(s => s.toggleSidebar)
   const projectName = useStore(s => s.projectName)
   const currentFilePath = useStore(s => s.currentFilePath)
   const currentStorageProjectId = useStore(s => s.currentStorageProjectId)
@@ -323,6 +338,133 @@ export default function App() {
     return remove
   }, [platform])
 
+  const commandSave = useCallback(async () => {
+    if (projectStorage.supportsPersistentProjects) {
+      await saveWorkingCopy()
+      markSavedRef.current()
+      showStatus('Saved in browser.', 'success')
+      return
+    }
+    await downloadProjectFile()
+  }, [projectStorage])
+
+  const commandSelectAll = useCallback(() => {
+    const scene = useStore.getState().getCurrentScene()
+    if (!scene) return
+
+    if (mode === 'lighting') {
+      setSelectedIds(scene.elements.map(el => el.id))
+      return
+    }
+
+    const roomId = scene.roomPoints?.length ? ['__room__'] : []
+    setSelectedShapeIds([...roomId, ...scene.shapes.map(shape => shape.id)])
+  }, [mode, setSelectedIds, setSelectedShapeIds])
+
+  const commandDeleteSelection = useCallback(() => {
+    if (mode === 'lighting') {
+      deleteSelectedElements()
+      return
+    }
+    deleteSelectedShapes()
+  }, [mode, deleteSelectedElements, deleteSelectedShapes])
+
+  const commandCloseProject = useCallback(() => {
+    if (isDirtyRef.current && !window.confirm('Close current project without saving?')) return
+    newProject('Untitled Project')
+    setCurrentStorageProjectIdRef.current(null)
+    setCurrentFilePathRef.current(null)
+    lastPersistedDataRef.current = null
+    showStatus('Project closed.', 'info')
+  }, [newProject])
+
+  const commandMap = useMemo(() => ({
+    newProject: () => setShowNewProjectDialog(true),
+    openProject: () => openProjectFile(),
+    saveProject: () => commandSave(),
+    saveProjectAs: () => downloadProjectFile({ forceSaveAs: true }),
+    exportProject: () => exportAllPdf(),
+    closeProject: () => commandCloseProject(),
+    undo: () => undo(),
+    redo: () => redo(),
+    deleteSelection: () => commandDeleteSelection(),
+    selectAll: () => commandSelectAll(),
+    zoomIn: () => setViewport(stageX, stageY, Math.min(stageScale * 1.2, 5)),
+    zoomOut: () => setViewport(stageX, stageY, Math.max(stageScale / 1.2, 0.1)),
+    resetZoom: () => setViewport(0, 0, 1),
+    toggleGrid: () => toggleShowGrid(),
+    toggleSidebar: () => toggleSidebar(),
+  }), [
+    commandCloseProject,
+    commandDeleteSelection,
+    commandSave,
+    commandSelectAll,
+    downloadProjectFile,
+    exportAllPdf,
+    openProjectFile,
+    redo,
+    setViewport,
+    stageScale,
+    stageX,
+    stageY,
+    toggleShowGrid,
+    toggleSidebar,
+    undo,
+  ])
+
+  const menus = useMemo(() => ([
+    {
+      key: 'file',
+      label: 'File',
+      items: [
+        { key: 'new', label: 'New', action: 'newProject' },
+        { key: 'open', label: 'Open…', action: 'openProject', shortcut: 'Ctrl+O' },
+        { key: 'save', label: 'Save', action: 'saveProject', shortcut: 'Ctrl+S' },
+        { key: 'save-as', label: 'Save As…', action: 'saveProjectAs', shortcut: 'Ctrl+Shift+S' },
+        { type: 'separator', key: 'file-sep-1' },
+        { key: 'export', label: 'Export', action: 'exportProject' },
+        { type: 'separator', key: 'file-sep-2' },
+        { key: 'close-project', label: 'Close Project', action: 'closeProject' },
+      ],
+    },
+    {
+      key: 'edit',
+      label: 'Edit',
+      items: [
+        { key: 'undo', label: 'Undo', action: 'undo', shortcut: 'Ctrl+Z', disabled: historyIndex < 0 },
+        { key: 'redo', label: 'Redo', action: 'redo', shortcut: 'Ctrl+Y', disabled: historyIndex >= history.length - 1 },
+        { type: 'separator', key: 'edit-sep-1' },
+        { key: 'cut', label: 'Cut', disabled: true },
+        { key: 'copy', label: 'Copy', disabled: true },
+        { key: 'paste', label: 'Paste', disabled: true },
+        { key: 'delete', label: 'Delete', action: 'deleteSelection', disabled: mode === 'lighting' ? selectedIds.length === 0 : selectedShapeIds.length === 0 },
+        { type: 'separator', key: 'edit-sep-2' },
+        { key: 'select-all', label: 'Select All', action: 'selectAll', shortcut: 'Ctrl+A' },
+      ],
+    },
+    {
+      key: 'view',
+      label: 'View',
+      items: [
+        { key: 'zoom-in', label: 'Zoom In', action: 'zoomIn' },
+        { key: 'zoom-out', label: 'Zoom Out', action: 'zoomOut' },
+        { key: 'zoom-reset', label: 'Reset Zoom', action: 'resetZoom' },
+        { type: 'separator', key: 'view-sep-1' },
+        { key: 'toggle-grid', label: 'Toggle Grid', action: 'toggleGrid' },
+        { key: 'toggle-sidebar', label: 'Toggle Sidebar', action: 'toggleSidebar' },
+      ],
+    },
+  ]), [history.length, historyIndex, mode, selectedIds.length, selectedShapeIds.length])
+
+  const handleMenuAction = useCallback((action) => {
+    const fn = commandMap[action]
+    if (!fn) return
+    Promise.resolve(fn()).catch((err) => {
+      recordDiagnostic('menu-command-failed', { action, error: err?.message || String(err) }, 'error')
+      showStatus('Menu action failed.', 'error')
+    })
+  }, [commandMap])
+
   const handleNewProjectConfirm = (name) => {
     newProject(name)
     setCurrentStorageProjectIdRef.current(null)
@@ -338,6 +480,7 @@ export default function App() {
 
   return (
     <div className={`flex flex-col h-screen w-screen overflow-hidden ${darkMode ? 'dark' : ''}`}>
+      <AppMenuBar menus={menus} onAction={handleMenuAction} />
       <Toolbar />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />

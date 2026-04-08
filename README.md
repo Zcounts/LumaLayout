@@ -1,5 +1,12 @@
 # LumaLayout — Lighting Diagram Desktop App
 
+## Web deployment (manual FTP)
+
+- Build the web bundle with `npm run build:web`.
+- Upload the **contents of `dist/`** to your hosting web root (for example `public_html/`), not the `dist` folder itself.
+- `vite.config.mjs` uses `base: './'`, so hashed assets are referenced relatively (e.g. `./assets/...`) and work for root or subfolder hosting.
+- If you deploy into a subfolder, upload all dist files into that subfolder root so `index.html` and `assets/` sit next to each other.
+
 ## Full Project Specification
 
 Build a Windows 11 desktop application using Electron + React for creating 
