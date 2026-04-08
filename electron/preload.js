@@ -32,4 +32,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Close-window lifecycle
   onAppBeforeClose: (cb) => on('app-before-close', cb),
   forceCloseApp: () => ipcRenderer.invoke('force-close-app'),
+  revealInFolder: (data) => ipcRenderer.invoke('reveal-in-folder', data),
 })
