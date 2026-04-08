@@ -5,11 +5,13 @@ export default function LabelEditor() {
   const labelEditor = useStore(s => s.labelEditor)
   const hideLabelEditor = useStore(s => s.hideLabelEditor)
   const setIconInfo = useStore(s => s.setIconInfo)
+  const setLabelEditorDistance = useStore(s => s.setLabelEditorDistance)
 
   const [label, setLabel] = useState('')
   const [accessories, setAccessories] = useState('')
   const [colorTemperature, setColorTemperature] = useState('')
   const [notes, setNotes] = useState('')
+  const [labelDistance, setLabelDistance] = useState(7)
 
   const labelRef = useRef(null)
 
@@ -19,6 +21,7 @@ export default function LabelEditor() {
       setAccessories(labelEditor.accessories || '')
       setColorTemperature(labelEditor.colorTemperature || '')
       setNotes(labelEditor.notes || '')
+      setLabelDistance(labelEditor.labelDistance ?? 7)
       setTimeout(() => labelRef.current?.focus(), 50)
     }
   }, [labelEditor])
@@ -33,8 +36,15 @@ export default function LabelEditor() {
       accessories: accessories.trim(),
       colorTemperature: colorTemperature.trim(),
       notes: notes.trim(),
+      labelDistance,
     })
     hideLabelEditor()
+  }
+
+  const handleDistanceChange = (e) => {
+    const v = Number(e.target.value)
+    setLabelDistance(v)
+    setLabelEditorDistance(v)
   }
 
   const handleKeyDown = (e) => {
@@ -46,7 +56,7 @@ export default function LabelEditor() {
 
   // Keep panel within viewport
   const panelW = 260
-  const panelH = 290
+  const panelH = 340
   const editorX = Math.min(x, window.innerWidth - panelW - 12)
   const editorY = Math.min(y, window.innerHeight - panelH - 12)
 
@@ -96,6 +106,22 @@ export default function LabelEditor() {
           onChange={e => setNotes(e.target.value)}
           placeholder="General notes… (Ctrl+Enter to save)"
           maxLength={200}
+        />
+      </div>
+
+      <div className="icon-info-field">
+        <label>
+          Label Distance
+          <span style={{ float: 'right', fontWeight: 400, color: 'rgba(0,0,0,0.5)' }}>{labelDistance}px</span>
+        </label>
+        <input
+          type="range"
+          min={0}
+          max={40}
+          step={1}
+          value={labelDistance}
+          onChange={handleDistanceChange}
+          style={{ width: '100%', marginTop: 3, cursor: 'pointer' }}
         />
       </div>
 
