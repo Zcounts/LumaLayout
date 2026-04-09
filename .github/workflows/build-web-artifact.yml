@@ -39,6 +39,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lumalayout-web-build
-          path: dist/*
+          path: |
+            dist/*
+            dist/.*
           if-no-files-found: error
           retention-days: 14
