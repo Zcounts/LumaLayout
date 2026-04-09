@@ -1,0 +1,10 @@
+Options -MultiViews
+RewriteEngine On
+
+# Serve existing files and directories directly — never rewrite them.
+# This is critical for /assets/index-*.js and /assets/index-*.css.
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Fall back to index.html for any path that isn't a real file.
+RewriteRule ^ index.html [QSA,L]
